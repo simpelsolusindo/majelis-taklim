@@ -1,0 +1,16 @@
+# ============================================================
+# pages.toml — Cloudflare Pages
+# File ini dikonfigurasi juga via Dashboard Cloudflare
+# ============================================================
+
+[build]
+command   = ""              # Tidak ada build step (vanilla HTML)
+directory = "pages/public"  # Root folder yang di-deploy
+
+[build.environment]
+NODE_VERSION = "20"
+
+# ============================================================
+# _headers — Security & Cache headers
+# File ini ditempatkan di pages/public/_headers
+# ============================================================

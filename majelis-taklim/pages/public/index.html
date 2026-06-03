@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#1a472a">
+  <meta name="description" content="Aplikasi Majelis Taklim - Bacaan, Jadwal, Absensi & Iuran">
+  <title>Majelis Taklim</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    /* ── VARIABLES ─────────────────────────────────────────── */
+    :root {
+      --g900: #0d2b16; --g800: #1a472a; --g700: #2d6a4f;
+      --g600: #40916c; --g500: #52b788; --g400: #74c69d;
+      --g300: #95d5b2; --g100: #d8f3dc; --g50:  #f0faf3;
+      --gold: #c9a84c; --gold2: #e8c76b; --gold3: #f5dfa0; --gold0: #fdf6e3;
+      --cream: #faf8f3; --cream2: #f0ece0;
+      --txt: #1a2e1e; --txt2: #4a6741; --txt3: #7a9975;
+      --sh1: 0 1px 3px rgba(26,71,42,.08);
+      --sh2: 0 4px 16px rgba(26,71,42,.12);
+      --sh3: 0 8px 32px rgba(26,71,42,.16);
+      --r: 12px; --rl: 20px; --rf: 9999px;
+      --fa: 'Scheherazade New', serif;
+      --fu: 'Plus Jakarta Sans', sans-serif;
+      --nav: 64px; --hdr: 56px;
+    }
+    [data-theme="dark"] {
+      --cream:#0f1f13; --cream2:#172a1e; --g50:#1a2e1e; --g100:#1e3a24;
+      --txt:#e8f5ea; --txt2:#95d5b2; --txt3:#74c69d;
+      --gold0:#1f1a0d; --gold3:#8a6e30;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:var(--fu);background:var(--cream);color:var(--txt);
+         min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+
+    /* ── HEADER ────────────────────────────────────────────── */
+    .app-header{
+      position:sticky;top:0;z-index:100;height:var(--hdr);
+      background:var(--g800);display:flex;align-items:center;
+      justify-content:space-between;padding:0 16px;
+      box-shadow:0 2px 12px rgba(0,0,0,.25)
+    }
+    .logo{display:flex;align-items:center;gap:10px}
+    .logo-icon{width:36px;height:36px;background:var(--gold2);border-radius:8px;
+               display:flex;align-items:center;justify-content:center;font-size:20px}
+    .logo-text{color:#fff;font-weight:700;font-size:16px;line-height:1.2}
+    .logo-text span{display:block;font-size:11px;font-weight:400;
+                    color:var(--g300);letter-spacing:.3px}
+    .hdr-actions{display:flex;align-items:center;gap:6px}
+    .hdr-btn{background:transparent;border:none;cursor:pointer;color:#fff;
+             width:36px;height:36px;border-radius:8px;display:flex;
+             align-items:center;justify-content:center;font-size:18px;transition:background .2s}
+    .hdr-btn:hover{background:rgba(255,255,255,.15)}
+
+    /* ── BOTTOM NAV ────────────────────────────────────────── */
+    .bottom-nav{
+      position:fixed;bottom:0;left:0;right:0;z-index:100;height:var(--nav);
+      background:var(--g900);display:flex;align-items:stretch;
+      border-top:1px solid rgba(255,255,255,.08);box-shadow:0 -4px 20px rgba(0,0,0,.2)
+    }
+    .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;
+              justify-content:center;gap:3px;cursor:pointer;border:none;
+              background:transparent;color:var(--g400);font-size:10px;font-weight:500;
+              font-family:var(--fu);padding:6px 2px;transition:color .2s;position:relative}
+    .nav-item .ni{font-size:20px;line-height:1;transition:transform .2s}
+    .nav-item.active{color:var(--gold2)}
+    .nav-item.active .ni{transform:scale(1.1)}
+    .nav-item.active::after{content:'';position:absolute;bottom:0;
+      left:20%;right:20%;height:2px;background:var(--gold2);border-radius:2px 2px 0 0}
+
+    /* ── MAIN ──────────────────────────────────────────────── */
+    .main{flex:1;padding:16px;padding-bottom:calc(var(--nav)+16px);
+          max-width:600px;margin:0 auto;width:100%}
+    #app{display:flex;flex-direction:column;min-height:100vh}
+
+    /* ── PAGES ─────────────────────────────────────────────── */
+    .page{display:none;animation:fadeIn .25s ease}
+    .page.active{display:block}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── CARDS ─────────────────────────────────────────────── */
+    .card{background:#fff;border-radius:var(--r);padding:16px;
+          box-shadow:var(--sh1);border:1px solid rgba(40,99,56,.08);margin-bottom:12px}
+    [data-theme="dark"] .card{background:var(--g50);border-color:rgba(255,255,255,.08)}
+
+    /* ── SECTION TITLE ─────────────────────────────────────── */
+    .stitle{font-size:12px;font-weight:600;letter-spacing:.8px;
+            text-transform:uppercase;color:var(--txt3);margin-bottom:12px;
+            padding-bottom:8px;border-bottom:1px solid var(--g100)}
+
+    /* ── BUTTONS ───────────────────────────────────────────── */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+         padding:10px 18px;border-radius:var(--rf);font-family:var(--fu);
+         font-weight:600;font-size:14px;cursor:pointer;border:none;transition:all .2s;text-decoration:none}
+    .btn-primary{background:var(--g700);color:#fff}
+    .btn-primary:hover{background:var(--g600);transform:translateY(-1px)}
+    .btn-secondary{background:var(--g100);color:var(--g800)}
+    .btn-gold{background:var(--gold);color:#fff;box-shadow:0 4px 12px rgba(201,168,76,.35)}
+    .btn-gold:hover{background:var(--gold2);transform:translateY(-1px)}
+    .btn-danger{background:#fde8e8;color:#c0392b}
+    .btn-sm{padding:6px 14px;font-size:12px}
+    .btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important}
+
+    /* ── FORMS ─────────────────────────────────────────────── */
+    .fg{margin-bottom:14px}
+    .fl{display:block;font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:5px}
+    .fc{width:100%;padding:10px 14px;border:1.5px solid var(--g100);border-radius:10px;
+        font-family:var(--fu);font-size:14px;background:var(--cream);color:var(--txt);
+        transition:border-color .2s;outline:none}
+    .fc:focus{border-color:var(--g500)}
+    [data-theme="dark"] .fc{background:var(--g100);border-color:rgba(255,255,255,.1)}
+
+    /* ── BADGES ────────────────────────────────────────────── */
+    .badge{display:inline-flex;align-items:center;padding:2px 8px;
+           border-radius:var(--rf);font-size:11px;font-weight:600}
+    .bg{background:var(--g100);color:var(--g700)}
+    .bg-gold{background:var(--gold0);color:#8a6e30}
+    .bg-red{background:#fde8e8;color:#c0392b}
+    .bg-gray{background:#f0f0f0;color:#666}
+
+    /* ── TOAST ─────────────────────────────────────────────── */
+    #toast-wrap{position:fixed;bottom:calc(var(--nav)+12px);left:50%;
+                transform:translateX(-50%);z-index:999;
+                display:flex;flex-direction:column;gap:8px;align-items:center}
+    .toast{padding:10px 20px;border-radius:var(--rf);background:var(--g900);color:#fff;
+           font-size:13px;font-weight:500;box-shadow:var(--sh3);
+           animation:slideUp .3s ease;white-space:nowrap}
+    .toast.err{background:#c0392b}
+    @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── MODAL ─────────────────────────────────────────────── */
+    .modal-ov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);
+              display:flex;align-items:flex-end;justify-content:center;
+              backdrop-filter:blur(4px);animation:fadeIn .2s ease}
+    .modal-ov.hidden{display:none}
+    .modal-sheet{background:var(--cream);border-radius:20px 20px 0 0;
+                 padding:24px 20px 36px;width:100%;max-width:600px;
+                 max-height:90vh;overflow-y:auto;animation:slideSheet .3s ease}
+    @keyframes slideSheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .modal-title{font-size:18px;font-weight:700;margin-bottom:20px;color:var(--txt);
+                 display:flex;justify-content:space-between;align-items:center}
+
+    /* ── LOGIN MODAL (bukan fullpage) ──────────────────────── */
+    .login-inner{text-align:center;padding-bottom:8px}
+    .login-inner .l-icon{font-size:48px;margin-bottom:8px}
+    .login-inner h2{font-size:20px;font-weight:800;color:var(--g800);margin-bottom:4px}
+    .login-inner p{font-size:13px;color:var(--txt3);margin-bottom:20px}
+    .login-arabic{font-family:var(--fa);font-size:26px;color:var(--g700);
+                  margin-bottom:20px;line-height:1.6;direction:rtl}
+
+    /* ── SPINNER ───────────────────────────────────────────── */
+    .spin{width:32px;height:32px;border:3px solid var(--g100);
+          border-top-color:var(--g600);border-radius:50%;
+          animation:spin .8s linear infinite;margin:24px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty{text-align:center;padding:40px 20px;color:var(--txt3)}
+    .empty .ei{font-size:48px;margin-bottom:12px}
+    .empty p{font-size:14px}
+
+    /* ── DASHBOARD ─────────────────────────────────────────── */
+    .greet{background:linear-gradient(135deg,var(--g800),var(--g600));
+           border-radius:var(--rl);padding:20px;color:#fff;margin-bottom:16px;
+           position:relative;overflow:hidden}
+    .greet::after{content:'☪';position:absolute;right:-10px;top:-20px;
+                  font-size:120px;opacity:.08;pointer-events:none}
+    .greet h2{font-size:20px;font-weight:700;margin-bottom:4px}
+    .greet p{font-size:13px;opacity:.8}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+    .stat{background:#fff;border-radius:var(--r);padding:14px;text-align:center;
+          box-shadow:var(--sh1);border:1px solid rgba(40,99,56,.08)}
+    [data-theme="dark"] .stat{background:var(--g50);border-color:rgba(255,255,255,.08)}
+    .stat .si{font-size:26px;margin-bottom:6px}
+    .stat .sv{font-size:22px;font-weight:800;color:var(--g700)}
+    .stat .sl{font-size:11px;color:var(--txt3);margin-top:2px}
+    .jitem{display:flex;gap:12px;align-items:flex-start;padding:12px;
+           border-radius:10px;background:var(--g50);
+           border:1px solid var(--g100);margin-bottom:8px}
+    [data-theme="dark"] .jitem{background:rgba(255,255,255,.04)}
+    .jdate{min-width:44px;text-align:center;background:var(--g700);color:#fff;
+           border-radius:8px;padding:6px 4px}
+    .jdate .day{font-size:20px;font-weight:800;line-height:1}
+    .jdate .mon{font-size:10px;text-transform:uppercase;margin-top:2px}
+    .jinfo h4{font-size:14px;font-weight:600;margin-bottom:2px}
+    .jinfo p{font-size:12px;color:var(--txt3)}
+
+    /* ── BACAAN ────────────────────────────────────────────── */
+    .btabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;
+           margin-bottom:16px;scrollbar-width:none}
+    .btabs::-webkit-scrollbar{display:none}
+    .btab{flex-shrink:0;padding:8px 16px;border-radius:var(--rf);font-size:13px;
+          font-weight:600;cursor:pointer;border:1.5px solid var(--g100);
+          background:#fff;color:var(--g700);transition:all .2s;white-space:nowrap}
+    [data-theme="dark"] .btab{background:var(--g50)}
+    .btab.active{background:var(--g700);color:#fff;border-color:var(--g700)}
+    .bcontent{background:#fff;border-radius:var(--rl);padding:20px;box-shadow:var(--sh1)}
+    [data-theme="dark"] .bcontent{background:var(--g50)}
+    .arab{font-family:var(--fa);direction:rtl;text-align:right;line-height:2;color:var(--g900)}
+    [data-theme="dark"] .arab{color:var(--txt)}
+    .latin{font-size:14px;line-height:1.8;color:var(--txt2);margin-top:8px;font-style:italic}
+    .arti{font-size:13px;line-height:1.7;color:var(--txt3);margin-top:4px}
+    .ayat{padding:16px 0;border-bottom:1px solid var(--g100)}
+    .ayat:last-child{border-bottom:none}
+    .anum{display:inline-flex;align-items:center;justify-content:center;
+          width:28px;height:28px;background:var(--g100);color:var(--g700);
+          border-radius:50%;font-size:12px;font-weight:600;margin-bottom:8px}
+    .fctrl{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .fbtn{width:32px;height:32px;border-radius:8px;background:var(--g100);
+          color:var(--g700);border:none;cursor:pointer;font-weight:700;
+          display:flex;align-items:center;justify-content:center;transition:all .2s}
+
+    /* ── JADWAL ────────────────────────────────────────────── */
+    .mnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .mnav h3{font-size:18px;font-weight:700}
+    .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:16px}
+    .ch{text-align:center;font-size:11px;font-weight:600;color:var(--txt3);padding:4px}
+    .cd{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+        font-size:13px;border-radius:8px;cursor:pointer;transition:all .15s}
+    .cd:hover{background:var(--g100)}
+    .cd.has-ev{background:var(--g100);color:var(--g800);font-weight:700}
+    .cd.today{background:var(--g700);color:#fff;font-weight:700}
+    .cd.sel{background:var(--gold);color:#fff}
+    .cd.empty{opacity:0;pointer-events:none}
+
+    /* ── JAMAAH ────────────────────────────────────────────── */
+    .searchbar{display:flex;gap:8px;margin-bottom:14px}
+    .jrow{display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;transition:background .15s}
+    .jrow:hover{background:var(--g50)}
+    .javat{width:44px;height:44px;border-radius:50%;background:var(--g700);
+           display:flex;align-items:center;justify-content:center;
+           font-weight:700;color:#fff;font-size:16px;flex-shrink:0}
+    .jmeta{flex:1;min-width:0}
+    .jmeta h4{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .jmeta p{font-size:12px;color:var(--txt3);margin-top:1px}
+
+    /* ── IURAN ─────────────────────────────────────────────── */
+    .isum{background:linear-gradient(135deg,var(--g800),var(--g600));
+          color:#fff;border-radius:var(--rl);padding:20px;margin-bottom:16px}
+    .isum h3{font-size:13px;opacity:.8;margin-bottom:4px}
+    .isum .amt{font-size:28px;font-weight:800}
+    .irow{display:flex;justify-content:space-between;align-items:center;
+          padding:12px;border-bottom:1px solid var(--g100)}
+    .irow:last-child{border-bottom:none}
+    .irow .iname{font-size:14px;font-weight:600}
+    .irow .idet{font-size:12px;color:var(--txt3);margin-top:2px}
+    .irow .iamt{font-size:15px;font-weight:700;color:var(--g700)}
+
+    /* ── ABSENSI ───────────────────────────────────────────── */
+    .abrow{display:flex;align-items:center;justify-content:space-between;
+           padding:10px 12px;border-bottom:1px solid var(--g100)}
+    .abrow:last-child{border-bottom:none}
+    .abbtns{display:flex;gap:6px}
+    .ab{padding:4px 10px;border-radius:var(--rf);font-size:12px;font-weight:600;
+        cursor:pointer;border:none;transition:all .15s}
+    .ab.h{background:var(--g100);color:var(--g700)}
+    .ab.h.on{background:var(--g700);color:#fff}
+    .ab.i{background:#fef9c3;color:#92400e}
+    .ab.i.on{background:#f59e0b;color:#fff}
+    .ab.t{background:#fee2e2;color:#991b1b}
+    .ab.t.on{background:#ef4444;color:#fff}
+
+    /* ── SPINNER GILIRAN ───────────────────────────────────── */
+    .wheel-wrap{position:relative;width:280px;height:280px;
+                display:flex;align-items:center;justify-content:center}
+    .wheel{position:absolute;inset:0;border-radius:50%;
+           background:conic-gradient(
+             var(--g600) 0deg,var(--g400) 60deg,
+             var(--g700) 60deg,var(--g500) 120deg,
+             var(--gold) 120deg,var(--gold3) 180deg,
+             var(--g600) 180deg,var(--g400) 240deg,
+             var(--g700) 240deg,var(--g500) 300deg,
+             var(--gold) 300deg,var(--gold3) 360deg);
+           box-shadow:0 0 0 4px var(--gold2),var(--sh3)}
+    .wheel.go{animation:spinW var(--dur,3s) cubic-bezier(.17,.67,.12,.99) forwards}
+    @keyframes spinW{from{transform:rotate(0)}to{transform:rotate(var(--deg,1080deg))}}
+    .wptr{position:absolute;top:-16px;left:50%;transform:translateX(-50%);
+          width:0;height:0;border-left:10px solid transparent;
+          border-right:10px solid transparent;border-top:24px solid var(--gold2);
+          filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+    .wcenter{position:relative;z-index:2;width:80px;height:80px;border-radius:50%;
+             background:#fff;border:4px solid var(--gold2);display:flex;
+             align-items:center;justify-content:center;font-size:32px;box-shadow:var(--sh2)}
+    .winner{background:linear-gradient(135deg,var(--gold),var(--gold3));
+            border-radius:var(--rl);padding:20px;text-align:center;width:100%;
+            animation:pop .5s cubic-bezier(.34,1.56,.64,1)}
+    @keyframes pop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+    .winner h3{font-size:14px;color:rgba(255,255,255,.8);margin-bottom:6px}
+    .winner .wname{font-size:24px;font-weight:800;color:#fff}
+    .pitem{display:flex;align-items:center;justify-content:space-between;
+           padding:10px 14px;border-radius:10px;background:var(--cream2);margin-bottom:6px}
+    [data-theme="dark"] .pitem{background:var(--g50)}
+
+    /* ── ADMIN BANNER ──────────────────────────────────────── */
+    .admin-bar{
+      background:linear-gradient(90deg,var(--g900),var(--g800));
+      color:var(--gold3);font-size:12px;font-weight:600;
+      padding:6px 16px;text-align:center;letter-spacing:.5px;
+      display:flex;align-items:center;justify-content:center;gap:6px
+    }
+
+    @media(min-width:600px){
+      .main{padding:20px}
+      .stats{grid-template-columns:repeat(4,1fr)}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── HEADER ──────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="logo">
+      <div class="logo-icon">☪</div>
+      <div class="logo-text">
+        Majelis Taklim
+        <span id="hdr-sub">Beranda</span>
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <!-- Admin badge — hanya muncul jika sudah login admin -->
+      <div id="admin-badge" style="display:none">
+        <span style="font-size:11px;background:var(--gold);color:#fff;
+              padding:3px 8px;border-radius:var(--rf);font-weight:700">ADMIN</span>
+      </div>
+      <button class="hdr-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
+      <!-- Login/Logout toggle -->
+      <button class="hdr-btn" id="auth-btn" onclick="handleAuthBtn()" title="Login Admin">🔑</button>
+    </div>
+  </header>
+
+  <!-- Admin mode bar — hanya muncul saat login admin -->
+  <div class="admin-bar" id="admin-bar" style="display:none">
+    ⚙️ Mode Admin Aktif — <span id="admin-username"></span>
+    <button onclick="doLogout()" style="background:rgba(255,255,255,.15);border:none;
+            color:var(--gold3);cursor:pointer;font-size:11px;padding:2px 8px;
+            border-radius:var(--rf);font-weight:600;margin-left:4px">Keluar</button>
+  </div>
+
+  <!-- ── MAIN CONTENT ────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- ══════════════════════════════════════════
+         BERANDA (publik)
+    ══════════════════════════════════════════ -->
+    <div id="p-beranda" class="page active">
+      <div class="greet">
+        <h2 id="greet-txt">السلام عليكم</h2>
+        <p id="greet-sub">Selamat datang di Majelis Taklim</p>
+      </div>
+      <div id="pengumuman-list"></div>
+      <div class="stats" id="dash-stats">
+        <div class="stat"><div class="si">👥</div><div class="sv" id="s-jamaah">-</div><div class="sl">Jamaah Aktif</div></div>
+        <div class="stat"><div class="si">✅</div><div class="sv" id="s-hadir">-</div><div class="sl">Kehadiran Bulan Ini</div></div>
+        <div class="stat" id="s-iuran-card" style="display:none">
+          <div class="si">💰</div><div class="sv" id="s-iuran">-</div><div class="sl">Iuran Bulan Ini</div>
+        </div>
+        <div class="stat"><div class="si">🎯</div><div class="sv" id="s-giliran">-</div><div class="sl">Menunggu Giliran</div></div>
+      </div>
+      <p class="stitle">Jadwal Terdekat</p>
+      <div id="jadwal-dekat"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         BACAAN (publik)
+    ══════════════════════════════════════════ -->
+    <div id="p-bacaan" class="page">
+      <div class="btabs" id="btabs"></div>
+      <div class="fctrl">
+        <span style="font-size:12px;color:var(--txt3)">Ukuran:</span>
+        <button class="fbtn" onclick="chFont(-2)">A-</button>
+        <button class="fbtn" onclick="chFont(2)">A+</button>
+        <button class="fbtn" id="as-btn" onclick="toggleAutoScroll()" title="Auto Scroll">⏩</button>
+      </div>
+      <div class="bcontent" id="bcontent"><div class="spin"></div></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         JADWAL (publik)
+    ══════════════════════════════════════════ -->
+    <div id="p-jadwal" class="page">
+      <div class="mnav">
+        <button class="btn btn-secondary btn-sm" onclick="chMonth(-1)">◀</button>
+        <h3 id="month-lbl"></h3>
+        <button class="btn btn-secondary btn-sm" onclick="chMonth(1)">▶</button>
+      </div>
+      <div class="card"><div class="calgrid" id="calgrid"></div></div>
+      <div id="jadwal-list"></div>
+      <!-- Hanya admin yang lihat tombol ini -->
+      <div id="btn-add-jadwal" style="display:none;text-align:center;margin-top:12px">
+        <button class="btn btn-primary" onclick="showAddJadwal()">+ Tambah Jadwal</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         JAMAAH — admin only (nav disembunyikan jika bukan admin)
+    ══════════════════════════════════════════ -->
+    <div id="p-jamaah" class="page">
+      <div class="searchbar">
+        <input type="text" id="j-search" class="fc" placeholder="Cari jamaah..."
+               oninput="searchJamaah(this.value)" style="flex:1">
+        <button class="btn btn-primary btn-sm" onclick="showAddJamaah()">+</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden" id="j-list">
+        <div class="spin"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         IURAN — admin only
+    ══════════════════════════════════════════ -->
+    <div id="p-iuran" class="page">
+      <div class="isum">
+        <h3>Total Iuran Bulan Ini</h3>
+        <div class="amt" id="iuran-total">Rp 0</div>
+        <div style="font-size:12px;opacity:.7;margin-top:4px" id="iuran-cnt"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <select class="fc" id="i-jenis" style="flex:1;min-width:140px" onchange="loadIuran()">
+          <option value="">Semua Jenis</option>
+        </select>
+        <input type="month" class="fc" id="i-bulan" style="flex:1;min-width:140px" onchange="loadIuran()">
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-secondary btn-sm" onclick="showIuranTab('bayar')" id="tab-bayar" style="flex:1">Pembayaran</button>
+        <button class="btn btn-secondary btn-sm" onclick="showIuranTab('tunggak')" id="tab-tunggak" style="flex:1">Tunggakan</button>
+      </div>
+      <div id="iuran-bayar">
+        <div class="card" style="padding:0;overflow:hidden" id="iuran-list"><div class="spin"></div></div>
+        <div style="text-align:center;margin-top:12px">
+          <button class="btn btn-primary" onclick="showAddIuran()">+ Catat Pembayaran</button>
+        </div>
+      </div>
+      <div id="iuran-tunggak" style="display:none">
+        <div class="card" style="padding:0;overflow:hidden" id="tunggak-list"><div class="spin"></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         ABSENSI — admin only
+    ══════════════════════════════════════════ -->
+    <div id="p-absensi" class="page">
+      <div class="fg">
+        <label class="fl">Pilih Kegiatan</label>
+        <select class="fc" id="ab-jadwal" onchange="loadAbsensiJamaah()">
+          <option value="">-- Pilih Kegiatan --</option>
+        </select>
+      </div>
+      <div id="ab-content"></div>
+      <div style="text-align:center;margin-top:12px">
+        <button class="btn btn-gold" id="btn-save-ab" style="display:none" onclick="saveAbsensi()">
+          💾 Simpan Absensi
+        </button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         SPINNER GILIRAN — admin only
+    ══════════════════════════════════════════ -->
+    <div id="p-spinner" class="page">
+      <div style="margin-bottom:16px">
+        <label class="fl">Pilih Fase</label>
+        <select class="fc" id="sp-fase" onchange="loadFase()">
+          <option value="">-- Pilih Fase --</option>
+        </select>
+      </div>
+      <div id="sp-main" style="display:none">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:24px">
+          <div class="wheel-wrap">
+            <div class="wptr"></div>
+            <div class="wheel" id="wheel-el"></div>
+            <div class="wcenter">☪</div>
+          </div>
+          <div id="winner-box" style="width:100%;display:none"></div>
+          <button class="btn btn-gold" style="width:220px;padding:14px" id="spin-btn" onclick="doSpin()">
+            🎯 Putar Giliran
+          </button>
+          <div style="width:100%">
+            <p class="stitle">Peserta Menunggu</p>
+            <div id="sp-waiting"></div>
+            <p class="stitle" style="margin-top:12px">Histori</p>
+            <div id="sp-histori"></div>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:16px">
+        <button class="btn btn-secondary btn-sm" onclick="showNewFase()">+ Fase Baru</button>
+      </div>
+    </div>
+
+    <!-- PENGUMUMAN ADMIN -->
+    <div id="p-pengumuman" class="page">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h2 style="font-size:18px;font-weight:700">Pengumuman</h2>
+        <button class="btn btn-primary btn-sm" onclick="showAddPengumuman()">+ Tambah</button>
+      </div>
+      <div id="pengumuman-admin-list"><div class="spin"></div></div>
+    </div>
+
+    <!-- LAPORAN EXPORT -->
+    <div id="p-laporan" class="page">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Laporan &amp; Export</h2>
+      <div class="card" style="background:linear-gradient(135deg,var(--g800),var(--g600));color:#fff;margin-bottom:16px">
+        <div style="font-size:12px;opacity:.8;margin-bottom:12px;font-weight:600;letter-spacing:.5px">REKAP BULAN INI</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="rekap-grid">
+          <div class="spin" style="grid-column:span 2"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:15px;margin-bottom:12px">&#x1F4B0; Export Iuran</div>
+        <div class="fg"><label class="fl">Periode</label><input type="month" class="fc" id="exp-iuran-bln"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="exportLaporan('iuran','json')">&#x1F4CA; Lihat</button>
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="exportLaporan('iuran','csv')">&#x2B07;&#xFE0F; CSV</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:15px;margin-bottom:12px">&#x2705; Export Kehadiran</div>
+        <div class="fg"><label class="fl">Bulan</label><input type="month" class="fc" id="exp-hadir-bln"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="exportLaporan('kehadiran','json')">&#x1F4CA; Lihat</button>
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="exportLaporan('kehadiran','csv')">&#x2B07;&#xFE0F; CSV</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:15px;margin-bottom:12px">&#x1F465; Export Jamaah</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" style="flex:1" onclick="exportLaporan('jamaah','json')">&#x1F4CA; Lihat</button>
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="exportLaporan('jamaah','csv')">&#x2B07;&#xFE0F; CSV</button>
+        </div>
+      </div>
+      <div id="laporan-preview" style="display:none"></div>
+    </div>
+
+    <!-- PENGATURAN ADMIN -->
+    <div id="p-setting" class="page">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">&#x2699;&#xFE0F; Pengaturan</h2>
+      <div class="card">
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px">&#x1F512; Ganti Password</div>
+        <div class="fg"><label class="fl">Password Lama</label><input type="password" class="fc" id="pw-lama" placeholder="Password saat ini"></div>
+        <div class="fg"><label class="fl">Password Baru</label><input type="password" class="fc" id="pw-baru" placeholder="Min. 6 karakter"></div>
+        <div class="fg"><label class="fl">Konfirmasi Password Baru</label><input type="password" class="fc" id="pw-konfirm" placeholder="Ulangi password baru"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="gantiPassword()">Simpan Password</button>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:15px;margin-bottom:14px">&#x1F464; Tambah Akun Admin</div>
+        <div class="fg"><label class="fl">Username</label><input class="fc" id="na-user" placeholder="Username baru"></div>
+        <div class="fg"><label class="fl">Password</label><input type="password" class="fc" id="na-pass" placeholder="Password"></div>
+        <div class="fg"><label class="fl">Admin Key</label><input class="fc" id="na-key" placeholder="Kunci rahasia admin"></div>
+        <button class="btn btn-secondary" style="width:100%" onclick="tambahAdmin()">Buat Akun Admin</button>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:15px;margin-bottom:10px">&#x2139;&#xFE0F; Info Aplikasi</div>
+        <div style="font-size:13px;color:var(--txt2);line-height:2">
+          <div>Versi: <b>1.0.0</b></div>
+          <div>Backend: <b>Cloudflare Workers + D1</b></div>
+          <div>Login sebagai: <b id="info-user">-</b></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- ── BOTTOM NAV ───────────────────────────────────────── -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-item active" onclick="goPage('beranda')" id="nav-beranda">
+      <span class="ni">🏠</span><span>Beranda</span>
+    </button>
+    <button class="nav-item" onclick="goPage('bacaan')" id="nav-bacaan">
+      <span class="ni">📖</span><span>Bacaan</span>
+    </button>
+    <button class="nav-item" onclick="goPage('jadwal')" id="nav-jadwal">
+      <span class="ni">📅</span><span>Jadwal</span>
+    </button>
+    <!-- Nav admin — disembunyikan sampai login -->
+    <button class="nav-item" onclick="goPage('iuran')" id="nav-iuran" style="display:none">
+      <span class="ni">💰</span><span>Iuran</span>
+    </button>
+    <button class="nav-item" onclick="goPage('absensi')" id="nav-absensi" style="display:none">
+      <span class="ni">📋</span><span>Absensi</span>
+    </button>
+    <button class="nav-item" onclick="goPage('jamaah')" id="nav-jamaah" style="display:none">
+      <span class="ni">👥</span><span>Jamaah</span>
+    </button>
+    <button class="nav-item" onclick="goPage('spinner')" id="nav-spinner" style="display:none">
+      <span class="ni">🎯</span><span>Giliran</span>
+    </button>
+    <button class="nav-item" onclick="goPage('pengumuman')" id="nav-pengumuman" style="display:none">
+      <span class="ni">📢</span><span>Pengumuman</span>
+    </button>
+    <button class="nav-item" onclick="goPage('laporan')" id="nav-laporan" style="display:none">
+      <span class="ni">📊</span><span>Laporan</span>
+    </button>
+    <button class="nav-item" onclick="goPage('setting')" id="nav-setting" style="display:none">
+      <span class="ni">⚙️</span><span>Setting</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Toast -->
+<div id="toast-wrap"></div>
+
+<!-- Modal -->
+<div id="modal-ov" class="modal-ov hidden" onclick="closeModal(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// CONFIG & STATE
+// ══════════════════════════════════════════════════════════
+const API = window.location.origin + '/api';
+
+const S = {
+  token:     localStorage.getItem('mt_token'),
+  user:      JSON.parse(localStorage.getItem('mt_user') || 'null'),
+  page:      'beranda',
+  fontSz:    parseInt(localStorage.getItem('mt_font') || '28'),
+  theme:     localStorage.getItem('mt_theme') || 'light',
+  bacaan:    localStorage.getItem('mt_bacaan') || 'tawasul',
+  calMonth:  new Date(),
+  abData:    {},
+  faseId:    null,
+  autoScroll:false,
+  scrollInt: null,
+  faseData:  null,
+  jadwalAll: [],
+};
+
+// ══════════════════════════════════════════════════════════
+// INIT — langsung tampil tanpa login
+// ══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  applyTheme();
+  greetUser();
+
+  // Publik: langsung load konten
+  loadDashboard();
+  loadBacaanList();
+  initJadwal();
+
+  // Kalau sudah ada token sebelumnya, aktifkan mode admin
+  if (S.token && S.user?.role === 'admin') {
+    activateAdminMode();
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// API HELPER — public call tidak kirim token
+// ══════════════════════════════════════════════════════════
+async function api(path, method = 'GET', body = null, withAuth = true) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (withAuth && S.token) headers['Authorization'] = 'Bearer ' + S.token;
+
+  const r = await fetch(API + path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Terjadi kesalahan');
+  return d;
+}
+
+// Fallback ke mock data jika backend belum terhubung
+async function safeApi(path, method = 'GET', body = null) {
+  try {
+    return await api(path, method, body, !!S.token);
+  } catch (e) {
+    if (e.message.includes('fetch') || e.message.includes('Failed')) {
+      return getMock(path);
+    }
+    throw e;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// AUTH — Login sebagai admin (modal, bukan full page)
+// ══════════════════════════════════════════════════════════
+function handleAuthBtn() {
+  if (S.user?.role === 'admin') {
+    doLogout();
+  } else {
+    showLoginModal();
+  }
+}
+
+function showLoginModal() {
+  showModal(`
+    <div class="login-inner">
+      <div class="l-icon">🔐</div>
+      <h2>Login Admin</h2>
+      <p>Fitur admin: kelola jamaah, iuran, absensi & giliran</p>
+    </div>
+    <div class="login-arabic">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ</div>
+    <div class="fg">
+      <label class="fl">Username</label>
+      <input id="l-user" class="fc" placeholder="Username admin" autocomplete="username">
+    </div>
+    <div class="fg">
+      <label class="fl">Password</label>
+      <input id="l-pass" class="fc" type="password" placeholder="Password"
+             autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()" id="l-btn">Masuk</button>
+    <p style="text-align:center;font-size:12px;color:var(--txt3);margin-top:12px">
+      Pengguna umum tidak perlu login untuk membaca atau melihat jadwal
+    </p>
+  `);
+  setTimeout(() => document.getElementById('l-user')?.focus(), 100);
+}
+
+async function doLogin() {
+  const u = document.getElementById('l-user')?.value?.trim();
+  const p = document.getElementById('l-pass')?.value;
+  if (!u || !p) return toast('Isi username dan password', true);
+
+  const btn = document.getElementById('l-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Memproses...'; }
+
+  try {
+    const res = await api('/auth/login', 'POST', { username: u, password: p }, false);
+    S.token = res.token;
+    S.user  = res.user;
+    localStorage.setItem('mt_token', res.token);
+    localStorage.setItem('mt_user', JSON.stringify(res.user));
+    closeModal();
+    activateAdminMode();
+    toast('Selamat datang, ' + res.user.username + '! ✅');
+  } catch (e) {
+    toast(e.message || 'Login gagal', true);
+    if (btn) { btn.disabled = false; btn.textContent = 'Masuk'; }
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('mt_token');
+  localStorage.removeItem('mt_user');
+  S.token = null; S.user = null;
+  deactivateAdminMode();
+  toast('Berhasil keluar');
+}
+
+// ══════════════════════════════════════════════════════════
+// ADMIN MODE — tampilkan/sembunyikan fitur admin
+// ══════════════════════════════════════════════════════════
+function activateAdminMode() {
+  // Header
+  document.getElementById('admin-badge').style.display = 'block';
+  document.getElementById('admin-bar').style.display   = 'flex';
+  document.getElementById('admin-username').textContent = S.user?.username;
+  document.getElementById('auth-btn').title = 'Keluar Admin';
+  document.getElementById('auth-btn').textContent = '🚪';
+
+  // Nav items admin
+  ['iuran','absensi','jamaah','spinner','pengumuman','laporan','setting'].forEach(id => {
+    const el = document.getElementById('nav-' + id);
+    if (el) el.style.display = '';
+  });
+
+  // Tombol tambah di halaman jadwal
+  document.getElementById('btn-add-jadwal').style.display = 'block';
+
+  // Stat card iuran di dashboard
+  document.getElementById('s-iuran-card').style.display = '';
+
+  // Load ulang dashboard (sekarang ada iuran)
+  loadDashboard();
+
+  // Load data admin
+  loadJamaahList();
+  initIuran();
+  loadAbsensiJadwal();
+  loadSpinnerFases();
+  loadPengumumanAdmin();
+  loadRekap();
+  document.getElementById('info-user').textContent = S.user?.username || '-';
+  // Set default bulan untuk export
+  const nowM = new Date().toISOString().slice(0,7);
+  const eiEl = document.getElementById('exp-iuran-bln');
+  const ehEl = document.getElementById('exp-hadir-bln');
+  if(eiEl) eiEl.value = nowM;
+  if(ehEl) ehEl.value = nowM;
+}
+
+function deactivateAdminMode() {
+  document.getElementById('admin-badge').style.display = 'none';
+  document.getElementById('admin-bar').style.display   = 'none';
+  document.getElementById('auth-btn').title = 'Login Admin';
+  document.getElementById('auth-btn').textContent = '🔑';
+
+  // Sembunyikan nav admin
+  ['iuran','absensi','jamaah','spinner','pengumuman','laporan','setting'].forEach(id => {
+    const el = document.getElementById('nav-' + id);
+    if (el) el.style.display = 'none';
+  });
+
+  document.getElementById('btn-add-jadwal').style.display = 'none';
+  document.getElementById('s-iuran-card').style.display   = 'none';
+
+  // Kalau sedang di halaman admin, kembali ke beranda
+  const adminPages = ['iuran','absensi','jamaah','spinner'];
+  if (adminPages.includes(S.page)) goPage('beranda');
+
+  loadDashboard();
+}
+
+// ══════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════
+function goPage(page) {
+  // Cek akses admin
+  const adminOnly = ['iuran','absensi','jamaah','spinner','pengumuman','laporan','setting'];
+  if (adminOnly.includes(page) && S.user?.role !== 'admin') {
+    showLoginModal();
+    return;
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  document.getElementById('p-' + page)?.classList.add('active');
+  document.getElementById('nav-' + page)?.classList.add('active');
+  S.page = page;
+
+  const titles = {
+    beranda:'Beranda', bacaan:'Bacaan Islami', jadwal:'Jadwal Kegiatan',
+    jamaah:'Data Jamaah', iuran:'Iuran', absensi:'Absensi', spinner:'Spinner Giliran'
+  };
+  document.getElementById('hdr-sub').textContent = titles[page] || page;
+
+  if (page === 'jadwal') renderCalendar();
+  if (page === 'iuran')  loadIuran();
+}
+
+// ══════════════════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════════════════
+function toggleTheme() {
+  S.theme = S.theme === 'light' ? 'dark' : 'light';
+  localStorage.setItem('mt_theme', S.theme);
+  applyTheme();
+}
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', S.theme);
+  document.getElementById('theme-btn').textContent = S.theme === 'dark' ? '☀️' : '🌙';
+}
+
+// ══════════════════════════════════════════════════════════
+// DASHBOARD (publik)
+// ══════════════════════════════════════════════════════════
+function greetUser() {
+  const h = new Date().getHours();
+  const tbl = [[5,'Subuh — بِسْمِ اللَّهِ'],[11,'Pagi — صَبَاحُ الخَيْر'],
+               [15,'Siang — كَيْفَ حَالُكَ'],[18,'Sore — مَسَاءُ الخَيْر'],[24,'Malam — تُصْبِحُ عَلَى خَيْر']];
+  const g = tbl.find(([max]) => h < max) || tbl[tbl.length-1];
+  document.getElementById('greet-txt').textContent = g[1];
+  document.getElementById('greet-sub').textContent = 'Selamat datang di Majelis Taklim';
+}
+
+async function loadDashboard() {
+  const d = await safeApi('/dashboard');
+  document.getElementById('s-jamaah').textContent  = d.jamaah_aktif  || 0;
+  document.getElementById('s-hadir').textContent   = d.kehadiran_bulan_ini || 0;
+  document.getElementById('s-giliran').textContent = d.fase_aktif?.menunggu || 0;
+
+  // Iuran hanya tampil kalau admin & data ada
+  if (d.iuran_bulan_ini) {
+    document.getElementById('s-iuran').textContent = 'Rp' + fNum(d.iuran_bulan_ini.total || 0);
+  }
+
+  // Jadwal terdekat
+  const el = document.getElementById('jadwal-dekat');
+  const MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  el.innerHTML = d.jadwal_terdekat?.length
+    ? d.jadwal_terdekat.map(j => {
+        const dt = new Date(j.tanggal);
+        return `<div class="jitem">
+          <div class="jdate"><div class="day">${dt.getDate()}</div><div class="mon">${MON[dt.getMonth()]}</div></div>
+          <div class="jinfo">
+            <h4>${j.judul}</h4>
+            <p>${j.waktu_mulai ? '🕐 '+j.waktu_mulai : ''} ${j.lokasi ? '• 📍 '+j.lokasi : ''}</p>
+          </div>
+        </div>`;
+      }).join('')
+    : '<div class="empty"><p>Belum ada jadwal mendatang</p></div>';
+
+  // Pengumuman
+  const pEl = document.getElementById('pengumuman-list');
+  pEl.innerHTML = d.pengumuman?.map(p => `
+    <div class="card" style="background:${p.prioritas==='tinggi'
+      ? 'linear-gradient(135deg,#fef3c7,#fde68a)':'var(--g50)'};
+      border-color:${p.prioritas==='tinggi'?'var(--gold2)':'var(--g100)'}">
+      <div style="font-size:11px;font-weight:600;color:var(--txt3);margin-bottom:4px">📢 PENGUMUMAN</div>
+      <div style="font-weight:700;font-size:14px">${p.judul}</div>
+      <div style="font-size:13px;margin-top:6px;color:var(--txt2)">${p.isi}</div>
+    </div>
+  `).join('') || '';
+}
+
+// ══════════════════════════════════════════════════════════
+// BACAAN (publik)
+// ══════════════════════════════════════════════════════════
+const BLABELS = {
+  tawasul:'Tawasul',tahlil:'Tahlil',istighotsah:'Istighotsah',
+  yasin:'Yasin','doa-harian':'Doa Harian','doa-penutup':'Doa Penutup'
+};
+
+async function loadBacaanList() {
+  const list = await safeApi('/bacaan');
+  document.getElementById('btabs').innerHTML = list.map(b =>
+    `<button class="btab ${b.slug===S.bacaan?'active':''}"
+             onclick="loadBacaan('${b.slug}')">${b.judul}</button>`
+  ).join('');
+  loadBacaan(S.bacaan);
+}
+
+async function loadBacaan(slug) {
+  S.bacaan = slug;
+  localStorage.setItem('mt_bacaan', slug);
+  document.querySelectorAll('.btab').forEach(t =>
+    t.classList.toggle('active', t.textContent === (BLABELS[slug] || slug))
+  );
+  const el = document.getElementById('bcontent');
+  el.innerHTML = '<div class="spin"></div>';
+  const d = await safeApi('/bacaan/' + slug);
+  const konten = d.konten || [];
+  if (!konten.length) {
+    el.innerHTML = `<div class="empty"><div class="ei">📖</div>
+      <p>Konten belum tersedia.<br>Admin dapat menambahkan melalui panel.</p></div>`;
+    return;
+  }
+  el.innerHTML = konten.map(a => `
+    <div class="ayat">
+      ${a.nomor ? `<span class="anum">${a.nomor}</span>` : ''}
+      ${a.keterangan ? `<div style="font-size:12px;color:var(--txt3);padding:6px 10px;
+          background:var(--g50);border-radius:8px;margin-bottom:8px">${a.keterangan}</div>` : ''}
+      ${a.arab  ? `<div class="arab"  style="font-size:${S.fontSz}px">${a.arab}</div>`  : ''}
+      ${a.latin ? `<div class="latin">${a.latin}</div>` : ''}
+      ${a.arti  ? `<div class="arti">Artinya: ${a.arti}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function chFont(d) {
+  S.fontSz = Math.max(16, Math.min(48, S.fontSz + d));
+  localStorage.setItem('mt_font', S.fontSz);
+  document.querySelectorAll('.arab').forEach(e => e.style.fontSize = S.fontSz + 'px');
+}
+
+function toggleAutoScroll() {
+  S.autoScroll = !S.autoScroll;
+  const btn = document.getElementById('as-btn');
+  if (S.autoScroll) {
+    btn.style.background = 'var(--g600)'; btn.style.color = '#fff';
+    S.scrollInt = setInterval(() => window.scrollBy({ top:1 }), 50);
+  } else {
+    btn.style.background = ''; btn.style.color = '';
+    clearInterval(S.scrollInt);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// JADWAL (publik GET)
+// ══════════════════════════════════════════════════════════
+let jadwalData = [];
+
+function initJadwal() {
+  S.calMonth = new Date();
+  loadJadwal();
+}
+
+async function loadJadwal() {
+  const y = S.calMonth.getFullYear();
+  const m = String(S.calMonth.getMonth() + 1).padStart(2,'0');
+  const res = await safeApi(`/jadwal?bulan=${y}-${m}`);
+  jadwalData = Array.isArray(res) ? res : (res.results || res.data || []);
+  renderCalendar();
+  renderJadwalList();
+}
+
+function renderCalendar() {
+  const y = S.calMonth.getFullYear(), mo = S.calMonth.getMonth();
+  const MONS = ['Januari','Februari','Maret','April','Mei','Juni',
+                'Juli','Agustus','September','Oktober','November','Desember'];
+  document.getElementById('month-lbl').textContent = `${MONS[mo]} ${y}`;
+  const first = new Date(y, mo, 1).getDay();
+  const total = new Date(y, mo+1, 0).getDate();
+  const today = new Date();
+  const evDays = new Set((jadwalData||[]).map(j => new Date(j.tanggal).getDate()));
+  const days = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  let h = days.map(d => `<div class="ch">${d}</div>`).join('');
+  for (let i=0; i<first; i++) h += `<div class="cd empty"></div>`;
+  for (let d=1; d<=total; d++) {
+    const isToday = today.getDate()===d && today.getMonth()===mo && today.getFullYear()===y;
+    h += `<div class="cd ${isToday?'today':''} ${evDays.has(d)?'has-ev':''}"
+               onclick="filterDay(${d},this)">${d}</div>`;
+  }
+  document.getElementById('calgrid').innerHTML = h;
+}
+
+function renderJadwalList(filterDay = null) {
+  const list = filterDay ? jadwalData.filter(j => new Date(j.tanggal).getDate() === filterDay) : jadwalData;
+  const MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const el = document.getElementById('jadwal-list');
+  el.innerHTML = list.length
+    ? list.map(j => `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-weight:700;font-size:15px">${j.judul}</div>
+            <div style="font-size:12px;color:var(--txt3);margin-top:4px">
+              📅 ${fDate(j.tanggal)} ${j.waktu_mulai ? '• 🕐 '+j.waktu_mulai : ''}
+            </div>
+            ${j.lokasi ? `<div style="font-size:12px;color:var(--txt3)">📍 ${j.lokasi}</div>` : ''}
+            ${j.penanggung_jawab ? `<div style="font-size:12px;color:var(--txt3)">👤 ${j.penanggung_jawab}</div>` : ''}
+          </div>
+          <span class="badge bg">${j.jenis||'kegiatan'}</span>
+        </div>
+        ${S.user?.role==='admin' ? `
+        <div style="margin-top:8px;text-align:right">
+          <button class="btn btn-danger btn-sm" onclick="deleteJadwal(${j.id})">Batalkan</button>
+        </div>` : ''}
+      </div>`).join('')
+    : '<div class="empty"><div class="ei">📅</div><p>Tidak ada jadwal</p></div>';
+}
+
+function filterDay(d, el) {
+  document.querySelectorAll('.cd').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  renderJadwalList(d);
+}
+
+function chMonth(delta) {
+  S.calMonth.setMonth(S.calMonth.getMonth() + delta);
+  loadJadwal();
+}
+
+// Admin: tambah jadwal
+function showAddJadwal() {
+  showModal(`
+    <div class="modal-title">Tambah Jadwal
+      <button onclick="closeModal()" class="btn btn-secondary btn-sm">✕</button>
+    </div>
+    <div class="fg"><label class="fl">Judul *</label>
+      <input class="fc" id="jd-judul" placeholder="Nama kegiatan"></div>
+    <div class="fg"><label class="fl">Tanggal *</label>
+      <input class="fc" id="jd-tgl" type="date"></div>
+    <div class="fg"><label class="fl">Waktu Mulai</label>
+      <input class="fc" id="jd-waktu" type="time"></div>
+    <div class="fg"><label class="fl">Lokasi</label>
+      <input class="fc" id="jd-lokasi" placeholder="Nama tempat"></div>
+    <div class="fg"><label class="fl">Jenis</label>
+      <select class="fc" id="jd-jenis">
+        <option value="mingguan">Mingguan</option>
+        <option value="bulanan">Bulanan</option>
+        <option value="tahunan">Tahunan</option>
+        <option value="khusus" selected>Khusus</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">Penanggung Jawab</label>
+      <input class="fc" id="jd-pj" placeholder="Nama pengurus"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveJadwal()">Simpan</button>
+  `);
+}
+
+async function saveJadwal() {
+  const body = {
+    judul: document.getElementById('jd-judul').value,
+    tanggal: document.getElementById('jd-tgl').value,
+    waktu_mulai: document.getElementById('jd-waktu').value,
+    lokasi: document.getElementById('jd-lokasi').value,
+    jenis: document.getElementById('jd-jenis').value,
+    penanggung_jawab: document.getElementById('jd-pj').value,
+  };
+  if (!body.judul || !body.tanggal) return toast('Judul dan tanggal wajib diisi', true);
+  await api('/jadwal', 'POST', body);
+  toast('Jadwal berhasil ditambahkan ✅');
+  closeModal(); loadJadwal();
+}
+
+async function deleteJadwal(id) {
+  if (!confirm('Batalkan jadwal ini?')) return;
+  await api('/jadwal/'+id, 'DELETE');
+  toast('Jadwal dibatalkan'); loadJadwal();
+}
+
+// ══════════════════════════════════════════════════════════
+// JAMAAH (admin only)
+// ══════════════════════════════════════════════════════════
+let jamaahAll = [];
+let jTimeout;
+
+async function loadJamaahList(q = '') {
+  const el = document.getElementById('j-list');
+  const d  = await safeApi(`/jamaah?status=aktif${q?'&q='+encodeURIComponent(q):''}`);
+  jamaahAll = d.data || d.results || [];
+  el.innerHTML = jamaahAll.length
+    ? jamaahAll.map(j => `
+      <div class="jrow" onclick="showJDetail(${j.id})">
+        <div class="javat">${j.nama[0]}</div>
+        <div class="jmeta">
+          <h4>${j.nama}</h4>
+          <p>📱 ${j.nomor_hp||'-'} · ${j.alamat||'-'}</p>
+        </div>
+        <button class="btn btn-danger btn-sm" style="flex-shrink:0"
+          onclick="event.stopPropagation();nonaktifJamaah(${j.id},'${j.nama}')">✕</button>
+      </div>`).join('')
+    : '<div class="empty"><div class="ei">👥</div><p>Tidak ada jamaah</p></div>';
+}
+
+function searchJamaah(v) {
+  clearTimeout(jTimeout);
+  jTimeout = setTimeout(() => loadJamaahList(v), 400);
+}
+
+function showJDetail(id) {
+  const j = jamaahAll.find(x => x.id === id);
+  if (!j) return;
+  showModal(`
+    <div class="modal-title">${j.nama}
+      <button onclick="closeModal()" class="btn btn-secondary btn-sm">✕</button>
+    </div>
+    <div style="text-align:center;padding:16px 0">
+      <div class="javat" style="width:72px;height:72px;font-size:28px;margin:0 auto 12px">${j.nama[0]}</div>
+      <div style="font-weight:700;font-size:18px">${j.nama}</div>
+      <span class="badge bg">${j.status}</span>
+    </div>
+    <p style="font-size:13px;margin-bottom:8px">📱 ${j.nomor_hp||'-'}</p>
+    <p style="font-size:13px;margin-bottom:8px">🏠 ${j.alamat||'-'}</p>
+    <p style="font-size:13px">📆 Bergabung: ${fDate(j.tanggal_bergabung)}</p>
+  `);
+}
+
+function showAddJamaah() {
+  showModal(`
+    <div class="modal-title">Tambah Jamaah
+      <button onclick="closeModal()" class="btn btn-secondary btn-sm">✕</button>
+    </div>
+    <div class="fg"><label class="fl">Nama *</label>
+      <input class="fc" id="nj-nama" placeholder="Nama lengkap"></div>
+    <div class="fg"><label class="fl">No. HP</label>
+      <input class="fc" id="nj-hp" type="tel" placeholder="08xxx"></div>
+    <div class="fg"><label class="fl">Alamat</label>
+      <input class="fc" id="nj-alamat" placeholder="Alamat lengkap"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveJamaah()">Simpan</button>
+  `);
+}
+
+async function saveJamaah() {
+  const nama = document.getElementById('nj-nama').value.trim();
+  if (!nama) return toast('Nama wajib diisi', true);
+  await api('/jamaah','POST',{
+    nama,
+    nomor_hp: document.getElementById('nj-hp').value.trim(),
+    alamat:   document.getElementById('nj-alamat').value.trim(),
+  });
+  toast('Jamaah ditambahkan ✅'); closeModal(); loadJamaahList();
+}
+
+async function nonaktifJamaah(id, nama) {
+  if (!confirm(`Nonaktifkan ${nama}?`)) return;
+  await api('/jamaah/'+id,'DELETE');
+  toast('Jamaah dinonaktifkan'); loadJamaahList();
+}
+
+// ══════════════════════════════════════════════════════════
+// IURAN (admin only)
+// ══════════════════════════════════════════════════════════
+async function initIuran() {
+  const jenis = await safeApi('/iuran/jenis');
+  const sel = document.getElementById('i-jenis');
+  (Array.isArray(jenis)?jenis:[]).forEach(j => {
+    sel.innerHTML += `<option value="${j.id}">${j.nama}</option>`;
+  });
+  const now = new Date();
+  document.getElementById('i-bulan').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  loadIuran();
+}
+
+async function loadIuran() {
+  const bulan  = document.getElementById('i-bulan')?.value || '';
+  const jenisId= document.getElementById('i-jenis')?.value || '';
+  let p = '';
+  if (bulan)   p += (p?'&':'?') + 'periode=' + bulan;
+  if (jenisId) p += (p?'&':'?') + 'jenis_iuran_id=' + jenisId;
+
+  const [data, rekap] = await Promise.all([
+    safeApi('/iuran' + p),
+    safeApi('/iuran/rekap?periode=' + bulan)
+  ]);
+
+  const items  = data.data || data.results || [];
+  const rArr   = Array.isArray(rekap) ? rekap : [];
+  const total  = rArr.reduce((s,r) => s+(r.total_nominal||0), 0);
+  const cnt    = rArr.reduce((s,r) => s+(r.jumlah_pembayar||0), 0);
+
+  document.getElementById('iuran-total').textContent = 'Rp ' + fNum(total);
+  document.getElementById('iuran-cnt').textContent   = cnt + ' pembayaran';
+
+  const iEl = document.getElementById('iuran-list');
+  iEl.innerHTML = items.length
+    ? items.map(i => `
+        <div class="irow">
+          <div><div class="iname">${i.jamaah_nama||'-'}</div>
+               <div class="idet">${i.jenis_nama||'-'} · ${fDate(i.tanggal_bayar)}</div></div>
+          <div class="iamt">Rp ${fNum(i.nominal)}</div>
+        </div>`).join('')
+    : '<div class="empty"><p>Belum ada pembayaran</p></div>';
+
+  if (jenisId && bulan) {
+    const tData = await safeApi(`/iuran/tunggakan?periode=${bulan}&jenis_iuran_id=${jenisId}`);
+    const tArr  = Array.isArray(tData) ? tData : [];
+    document.getElementById('tunggak-list').innerHTML = tArr.length
+      ? tArr.map(j => `
+          <div class="irow">
+            <div><div class="iname">${j.nama}</div>
+                 <div class="idet">📱 ${j.nomor_hp||'-'}</div></div>
+            <span class="badge bg-red">Belum bayar</span>
+          </div>`).join('')
+      : '<div class="empty"><p>Tidak ada tunggakan 🎉</p></div>';
+  }
+}
+
+function showIuranTab(t) {
+  document.getElementById('iuran-bayar').style.display  = t==='bayar'  ? '' : 'none';
+  document.getElementById('iuran-tunggak').style.display= t==='tunggak'? '' : 'none';
+  document.getElementById('tab-bayar').className   = 'btn btn-sm ' + (t==='bayar'  ?'btn-primary':'btn-secondary');
+  document.getElementById('tab-tunggak').className = 'btn btn-sm ' + (t==='tunggak'?'btn-primary':'btn-secondary');
+}
+
+async function showAddIuran() {
+  const [jenis, jamaah] = await Promise.all([
+    safeApi('/iuran/jenis'),
+    safeApi('/jamaah?status=aktif')
+  ]);
+  const jArr = jamaah.data || jamaah.results || [];
+  const now  = new Date();
+  const per  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  showModal(`
+    <div class="modal-title">Catat Pembayaran
+      <button onclick="closeModal()" class="btn btn-secondary btn-sm">✕</button>
+    </div>
+    <div class="fg"><label class="fl">Jamaah *</label>
+      <select class="fc" id="py-j"><option value="">Pilih Jamaah</option>
+        ${jArr.map(j=>`<option value="${j.id}">${j.nama}</option>`).join('')}
+      </select></div>
+    <div class="fg"><label class="fl">Jenis Iuran *</label>
+      <select class="fc" id="py-ji">
+        ${(Array.isArray(jenis)?jenis:[]).map(j=>`<option value="${j.id}" data-n="${j.nominal_default}">${j.nama}</option>`).join('')}
+      </select></div>
+    <div class="fg"><label class="fl">Nominal *</label>
+      <input class="fc" id="py-nom" type="number" value="5000"></div>
+    <div class="fg"><label class="fl">Tanggal Bayar *</label>
+      <input class="fc" id="py-tgl" type="date" value="${now.toISOString().split('T')[0]}"></div>
+    <div class="fg"><label class="fl">Periode *</label>
+      <input class="fc" id="py-per" type="month" value="${per}"></div>
+    <div class="fg"><label class="fl">Keterangan</label>
+      <input class="fc" id="py-ket" placeholder="Opsional"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveIuran()">Simpan</button>
+  `);
+  document.getElementById('py-ji').addEventListener('change', function() {
+    document.getElementById('py-nom').value = this.selectedOptions[0]?.dataset.n || '';
+  });
+}
+
+async function saveIuran() {
+  const body = {
+    jamaah_id:      parseInt(document.getElementById('py-j').value),
+    jenis_iuran_id: parseInt(document.getElementById('py-ji').value),
+    nominal:        parseFloat(document.getElementById('py-nom').value),
+    tanggal_bayar:  document.getElementById('py-tgl').value,
+    periode:        document.getElementById('py-per').value,
+    keterangan:     document.getElementById('py-ket').value,
+  };
+  if (!body.jamaah_id || !body.nominal) return toast('Data tidak lengkap', true);
+  await api('/iuran','POST',body);
+  toast('Pembayaran dicatat ✅'); closeModal(); loadIuran();
+}
+
+// ══════════════════════════════════════════════════════════
+// ABSENSI (admin only)
+// ══════════════════════════════════════════════════════════
+async function loadAbsensiJadwal() {
+  const res = await safeApi('/jadwal');
+  const arr = Array.isArray(res) ? res : (res.results || res.data || []);
+  const sel = document.getElementById('ab-jadwal');
+  arr.forEach(j => {
+    sel.innerHTML += `<option value="${j.id}">${j.judul} – ${fDate(j.tanggal)}</option>`;
+  });
+}
+
+async function loadAbsensiJamaah() {
+  const jadwal_id = document.getElementById('ab-jadwal').value;
+  if (!jadwal_id) return;
+
+  const [exist, allJ] = await Promise.all([
+    safeApi(`/kehadiran?jadwal_id=${jadwal_id}`),
+    safeApi('/jamaah?status=aktif')
+  ]);
+
+  const exMap = {};
+  (Array.isArray(exist) ? exist : exist.results || []).forEach(k => exMap[k.jamaah_id] = k.status);
+
+  S.abData = {};
+  const arr = allJ.data || allJ.results || [];
+  arr.forEach(j => S.abData[j.id] = exMap[j.id] || 'hadir');
+
+  document.getElementById('ab-content').innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:10px 14px;font-size:13px;color:var(--txt3);background:var(--g50)">
+        ${arr.length} jamaah terdaftar
+      </div>
+      ${arr.map(j => `
+        <div class="abrow">
+          <div style="font-weight:600;font-size:14px">${j.nama}</div>
+          <div class="abbtns">
+            <button class="ab h ${S.abData[j.id]==='hadir'?'on':''}"
+              onclick="setAb(${j.id},'hadir',this)">H</button>
+            <button class="ab i ${S.abData[j.id]==='izin'?'on':''}"
+              onclick="setAb(${j.id},'izin',this)">I</button>
+            <button class="ab t ${S.abData[j.id]==='tidak_hadir'?'on':''}"
+              onclick="setAb(${j.id},'tidak_hadir',this)">T</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  document.getElementById('btn-save-ab').style.display = '';
+}
+
+function setAb(id, status, btn) {
+  S.abData[id] = status;
+  const row = btn.closest('.abrow');
+  row.querySelectorAll('.ab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+async function saveAbsensi() {
+  const jadwal_id = document.getElementById('ab-jadwal').value;
+  if (!jadwal_id) return toast('Pilih kegiatan', true);
+  const absensi = Object.entries(S.abData).map(([jamaah_id, status]) =>
+    ({ jamaah_id: parseInt(jamaah_id), status }));
+  await api('/kehadiran','POST',{ jadwal_id: parseInt(jadwal_id), absensi });
+  toast('Absensi disimpan ✅');
+}
+
+// ══════════════════════════════════════════════════════════
+// SPINNER (admin only)
+// ══════════════════════════════════════════════════════════
+async function loadSpinnerFases() {
+  const fases = await safeApi('/spinner/fase');
+  const sel = document.getElementById('sp-fase');
+  sel.innerHTML = '<option value="">-- Pilih Fase --</option>';
+  (Array.isArray(fases)?fases:[]).forEach(f => {
+    sel.innerHTML += `<option value="${f.id}">${f.nama} (${f.menunggu||0} menunggu)</option>`;
+    if (f.status === 'aktif' && !sel.value) sel.value = f.id;
+  });
+  if (sel.value) loadFase();
+}
+
+async function loadFase() {
+  const id = document.getElementById('sp-fase').value;
+  if (!id) { document.getElementById('sp-main').style.display = 'none'; return; }
+  S.faseId   = parseInt(id);
+  S.faseData = await safeApi(`/spinner/fase/${id}`);
+  document.getElementById('sp-main').style.display = '';
+  renderPeserta();
+}
+
+function renderPeserta() {
+  if (!S.faseData) return;
+  const { peserta, histori } = S.faseData;
+  const waiting = (peserta||[]).filter(p => ['waiting','priority'].includes(p.status));
+
+  document.getElementById('sp-waiting').innerHTML = waiting.length
+    ? waiting.map(p => `
+        <div class="pitem">
+          <span>${p.status==='priority'?'⭐ ':''}<b>${p.nama}</b></span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="badge ${p.status==='priority'?'bg-gold':'bg'}">${p.status}</span>
+            <button class="btn btn-secondary btn-sm" onclick="setPrio(${p.jamaah_id})">⭐</button>
+            <button class="btn btn-secondary btn-sm" onclick="skipP(${p.jamaah_id})">⏭</button>
+          </div>
+        </div>`).join('')
+    : '<div class="empty"><p>Semua sudah dapat giliran 🎉</p></div>';
+
+  document.getElementById('sp-histori').innerHTML = (histori||[]).length
+    ? histori.map(h => `
+        <div class="pitem" style="background:var(--g50)">
+          <span>${h.putaran}. ${h.nama}</span>
+          <span class="badge bg">✓</span>
+        </div>`).join('')
+    : '<div style="font-size:13px;color:var(--txt3);text-align:center;padding:12px">Belum ada histori</div>';
+}
+
+async function doSpin() {
+  if (!S.faseId) return toast('Pilih fase dulu', true);
+  const btn = document.getElementById('spin-btn');
+  btn.disabled = true;
+
+  const wheel = document.getElementById('wheel-el');
+  const deg   = 1440 + Math.floor(Math.random() * 720);
+  const dur   = 3;
+  wheel.style.setProperty('--deg', deg + 'deg');
+  wheel.style.setProperty('--dur', dur + 's');
+  wheel.classList.add('go');
+
+  setTimeout(async () => {
+    try {
+      const res = await api('/spinner/putar','POST',{ fase_id: S.faseId });
+      wheel.classList.remove('go');
+      if (res.selesai) {
+        toast('🎉 ' + res.message);
+        document.getElementById('winner-box').style.display = 'none';
+      } else {
+        const wb = document.getElementById('winner-box');
+        wb.style.display = '';
+        wb.innerHTML = `<div class="winner">
+          <h3>🎉 Giliran Selanjutnya</h3>
+          <div class="wname">${res.terpilih.nama}</div>
+          <div style="font-size:12px;opacity:.7;margin-top:6px">
+            Putaran ke-${res.putaran} ${res.was_priority?'(Prioritas)':''}
+          </div>
+        </div>`;
+        toast('Terpilih: ' + res.terpilih.nama + ' 🎯');
+        S.faseData = await safeApi('/spinner/fase/' + S.faseId);
+        renderPeserta();
+      }
+    } catch(e) {
+      wheel.classList.remove('go');
+      toast(e.message||'Gagal memutar', true);
+    }
+    btn.disabled = false;
+  }, dur * 1000 + 200);
+}
+
+async function setPrio(jamaahId) {
+  await api('/spinner/priority','POST',{ fase_id: S.faseId, jamaah_id: jamaahId });
+  toast('Prioritas ditetapkan ⭐');
+  S.faseData = await safeApi('/spinner/fase/' + S.faseId);
+  renderPeserta();
+}
+
+async function skipP(jamaahId) {
+  await api('/spinner/skip','POST',{ fase_id: S.faseId, jamaah_id: jamaahId });
+  toast('Peserta di-skip');
+  S.faseData = await safeApi('/spinner/fase/' + S.faseId);
+  renderPeserta();
+}
+
+function showNewFase() {
+  showModal(`
+    <div class="modal-title">Fase Baru
+      <button onclick="closeModal()" class="btn btn-secondary btn-sm">✕</button>
+    </div>
+    <div class="fg"><label class="fl">Nama Fase *</label>
+      <input class="fc" id="nf-nama" placeholder="Contoh: Arisan 2025"></div>
+    <div class="fg"><label class="fl">Deskripsi</label>
+      <input class="fc" id="nf-desc" placeholder="Opsional"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="saveFase()">Buat Fase</button>
+  `);
+}
+
+async function saveFase() {
+  const nama = document.getElementById('nf-nama').value.trim();
+  if (!nama) return toast('Nama fase wajib diisi', true);
+  const jamaah = await safeApi('/jamaah?status=aktif');
+  const ids = (jamaah.data || jamaah.results || []).map(j => j.id);
+  await api('/spinner/fase','POST',{ nama, deskripsi: document.getElementById('nf-desc').value, jamaah_ids: ids });
+  toast('Fase dibuat dengan ' + ids.length + ' peserta ✅');
+  closeModal(); loadSpinnerFases();
+}
+
+// ══════════════════════════════════════════════════════════
+// MODAL, TOAST, UTILS
+// ══════════════════════════════════════════════════════════
+function showModal(html) {
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-ov').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-ov')) return;
+  document.getElementById('modal-ov').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function toast(msg, isErr = false) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.textContent = msg;
+  document.getElementById('toast-wrap').appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+function fNum(n) { return Number(n||0).toLocaleString('id-ID'); }
+function fDate(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  const M  = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  return `${dt.getDate()} ${M[dt.getMonth()]} ${dt.getFullYear()}`;
+}
+
+// ══════════════════════════════════════════════════════════
+// MOCK DATA (demo tanpa backend)
+// ══════════════════════════════════════════════════════════
+function getMock(path) {
+  if (path.startsWith('/dashboard')) return {
+    jamaah_aktif:47, kehadiran_bulan_ini:128, fase_aktif:{menunggu:12},
+    jadwal_terdekat:[
+      {id:1,judul:'Pengajian Rutin',tanggal:new Date(Date.now()+3*86400000).toISOString().split('T')[0],waktu_mulai:'08:00',lokasi:'Mushola Al-Ikhlas'},
+      {id:2,judul:'Arisan Bulanan PKK',tanggal:new Date(Date.now()+7*86400000).toISOString().split('T')[0],waktu_mulai:'10:00',lokasi:'Rumah Ibu Ketua'},
+    ],
+    pengumuman:[{id:1,judul:'Jadwal Maulid Nabi',isi:'Peringatan Maulid Nabi akan diadakan pada akhir bulan ini. Mohon kehadiran seluruh jamaah.',prioritas:'tinggi'}]
+  };
+  if (path === '/bacaan') return [
+    {id:1,judul:'Tawasul',slug:'tawasul',urutan:1},
+    {id:2,judul:'Tahlil',slug:'tahlil',urutan:2},
+    {id:3,judul:'Istighotsah',slug:'istighotsah',urutan:3},
+    {id:4,judul:'Yasin',slug:'yasin',urutan:4},
+    {id:5,judul:'Doa Harian',slug:'doa-harian',urutan:5},
+    {id:6,judul:'Doa Penutup',slug:'doa-penutup',urutan:6},
+  ];
+  if (path.startsWith('/bacaan/')) {
+    const slug = path.split('/').pop();
+    return { slug, judul: BLABELS[slug]||slug, konten: BACAAN_DEMO[slug] || [] };
+  }
+  if (path.startsWith('/jamaah')) return { data: MOCK_J, total: MOCK_J.length };
+  if (path.startsWith('/iuran/jenis')) return [{id:1,nama:'Iuran PKK',nominal_default:5000},{id:2,nama:'Iuran Kegiatan',nominal_default:10000}];
+  if (path.startsWith('/iuran/rekap')) return [{jenis:'Iuran PKK',jumlah_pembayar:7,total_nominal:35000}];
+  if (path.startsWith('/iuran/tunggakan')) return MOCK_J.slice(3);
+  if (path.startsWith('/iuran')) return { data: [], total: 0 };
+  if (path.startsWith('/jadwal')) return [
+    {id:1,judul:'Pengajian Rutin',tanggal:new Date(Date.now()+3*86400000).toISOString().split('T')[0],waktu_mulai:'08:00',lokasi:'Mushola Al-Ikhlas',jenis:'mingguan'},
+    {id:2,judul:'Arisan Bulanan',tanggal:new Date(Date.now()+7*86400000).toISOString().split('T')[0],waktu_mulai:'10:00',lokasi:'Rumah Ibu Ketua',jenis:'bulanan'},
+  ];
+  if (path.startsWith('/kehadiran')) return [];
+  if (path.startsWith('/spinner/fase/')) return { fase:{id:1,nama:'Fase Arisan 2025',status:'aktif'}, peserta: MOCK_J.map((j,i)=>({...j,jamaah_id:j.id,status:i<2?'selected':i===2?'priority':'waiting'})), histori: MOCK_J.slice(0,2).map((j,i)=>({jamaah_id:j.id,nama:j.nama,putaran:i+1})) };
+  if (path.startsWith('/spinner/fase')) return [{id:1,nama:'Fase Arisan 2025',status:'aktif',total_peserta:5,menunggu:3}];
+  if (path.startsWith('/pengumuman')) return [{id:1,judul:'Jadwal Maulid Nabi',isi:'Peringatan Maulid Nabi akan diadakan akhir bulan ini.',prioritas:'tinggi'}];
+  if (path.startsWith('/laporan/rekap')) return {jamaah_aktif:15,total_iuran:75000,total_hadir:42,tunggakan_pkk:8};
+  if (path.startsWith('/laporan/iuran')) return {data:MOCK_J.slice(0,3).map((j,i)=>({jamaah:j.nama,nomor_hp:j.nomor_hp,jenis_iuran:'Iuran PKK',nominal:5000,tanggal_bayar:'2025-01-10',periode:'2025-01'}))};
+  if (path.startsWith('/laporan/kehadiran')) return {data:MOCK_J.map(j=>({jamaah:j.nama,nomor_hp:j.nomor_hp,hadir:3,izin:1,tidak_hadir:0,total_kegiatan:4,persen_hadir:'75.0'}))};
+  if (path.startsWith('/laporan/jamaah')) return {data:MOCK_J};
+  return { data:[], results:[], total:0 };
+}
+
+const MOCK_J = [
+  {id:1,nama:'Hj. Fatimah Zahra',nomor_hp:'081234567890',alamat:'Jl. Mawar No. 1',status:'aktif'},
+  {id:2,nama:'Ibu Siti Aminah',nomor_hp:'081234567891',alamat:'Jl. Melati No. 5',status:'aktif'},
+  {id:3,nama:'Ibu Khadijah',nomor_hp:'081234567892',alamat:'Jl. Anggrek No. 3',status:'aktif'},
+  {id:4,nama:'Ibu Aisyah',nomor_hp:'081234567893',alamat:'Jl. Dahlia No. 7',status:'aktif'},
+  {id:5,nama:'Ibu Maryam',nomor_hp:'081234567894',alamat:'Jl. Kenanga No. 2',status:'aktif'},
+];
+
+const BACAAN_DEMO = {
+  tawasul:[
+    {keterangan:'Pembukaan — Al-Fatihah untuk Nabi Muhammad SAW',arab:'إِلَى حَضْرَةِ النَّبِيِّ الْمُصْطَفَى مُحَمَّدٍ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ',latin:"Ilaa hadrati an-nabiyyil mushthofaa muhammadin shallallaahu 'alaihi wasallam",arti:'Kepada kehadiran Nabi yang terpilih Muhammad SAW'},
+    {keterangan:'Al-Fatihah untuk para Wali & Ulama',arab:'ثُمَّ إِلَى حَضْرَةِ سَيِّدِنَا الشَّيْخِ عَبْدِ الْقَادِرِ الْجَيْلَانِيِّ',latin:"Tsumma ilaa hadrati sayyidinasy-syaikh 'abdil qaadiri al-jiilanii",arti:'Kemudian kepada kehadiran tuan kami Syaikh Abdul Qadir Al-Jilani'},
+  ],
+  tahlil:[
+    {nomor:1,keterangan:'Istighfar — 3x',arab:'أَسْتَغْفِرُ اللهَ الْعَظِيمَ الَّذِي لَا إِلَهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ وَأَتُوبُ إِلَيْهِ',latin:"Astaghfirul-laahal-'azhiim...",arti:'Aku memohon ampun kepada Allah Yang Maha Agung...'},
+    {nomor:2,keterangan:'Tahlil — 100x',arab:'لَا إِلَهَ إِلَّا اللهُ',latin:'Laa ilaaha illallaah',arti:'Tiada Tuhan selain Allah'},
+    {nomor:3,keterangan:'Shalawat',arab:'اللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ',latin:"Allaahumma shalli 'alaa sayyidinaa muhammad",arti:'Ya Allah limpahkan shalawat kepada junjungan kami Muhammad'},
+  ],
+  yasin:[
+    {nomor:1,arab:'يس',latin:'Yaa Siin',arti:'Yaa Siin'},
+    {nomor:2,arab:'وَالْقُرْآنِ الْحَكِيمِ',latin:'Wal-qur-aanil hakiim',arti:'Demi Al-Quran yang penuh hikmah'},
+    {nomor:82,keterangan:'Ayat paling terkenal',arab:'إِنَّمَا أَمْرُهُ إِذَا أَرَادَ شَيْئًا أَن يَقُولَ لَهُ كُن فَيَكُونُ',latin:'Innamaa amruhuu idzaa araada syay-an ay yaquula lahuu kun fa-yakuun',arti:'Apabila Dia menghendaki sesuatu, Dia hanya berkata: Jadilah! Maka jadilah'},
+  ],
+  istighotsah:[
+    {keterangan:'Pembukaan',arab:'يَا اللهُ يَا اللهُ يَا اللهُ',latin:'Yaa Allaah Yaa Allaah Yaa Allaah',arti:'Wahai Allah... Wahai Allah... Wahai Allah...'},
+    {nomor:1,keterangan:'Shalawat Tafrijiyyah — 41x',arab:'اللَّهُمَّ صَلِّ صَلَاةً كَامِلَةً',latin:"Allaahumma shalli shalaa-tan kaamilatan...",arti:'Ya Allah, limpahkan shalawat yang sempurna...'},
+    {nomor:2,keterangan:'Tahlil — 100x',arab:'لَا إِلَهَ إِلَّا اللهُ',latin:'Laa ilaaha illallaah',arti:'Tiada Tuhan selain Allah'},
+  ],
+  'doa-harian':[
+    {keterangan:'Doa Bangun Tidur',arab:'الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا',latin:"Alhamdu lillaahil-ladzii ahyaanaa ba'da maa amaatanaa",arti:'Segala puji bagi Allah yang telah menghidupkan kami setelah mematikan kami'},
+    {keterangan:'Doa Sebelum Makan',arab:'اللَّهُمَّ بَارِكْ لَنَا فِيمَا رَزَقْتَنَا',latin:"Allaahumma baarik lanaa fiimaa razaqtanaa",arti:'Ya Allah, berkahilah kami pada apa yang telah Engkau rezekikan'},
+    {keterangan:'Sayyidul Istighfar',arab:'اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ',latin:"Allaahumma anta rabbii laa ilaaha illaa ant",arti:'Ya Allah, Engkau adalah Tuhanku, tiada Tuhan selain Engkau'},
+  ],
+  'doa-penutup':[
+    {keterangan:'Doa Penutup Majelis',arab:'سُبْحَانَكَ اللَّهُمَّ وَبِحَمْدِكَ أَشْهَدُ أَنْ لَا إِلَهَ إِلَّا أَنْتَ',latin:"Subhaanakallaahumma wa-bihamdika asyhadu al-laa ilaaha illaa anta",arti:'Maha Suci Engkau ya Allah, dengan memuji-Mu aku bersaksi tiada Tuhan selain Engkau'},
+    {keterangan:'Doa Dunia Akhirat',arab:'رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ',latin:"Rabbanaa aatinaa fid-dunyaa hasanatan wa-fil-aakhirati hasanatan",arti:'Ya Tuhan kami, berikanlah kebaikan di dunia dan akhirat, jauhkan dari api neraka'},
+  ],
+};
+
+
+// ══════════════════════════════════════════════════════════
+// PENGUMUMAN ADMIN
+// ══════════════════════════════════════════════════════════
+async function loadPengumumanAdmin() {
+  const el   = document.getElementById('pengumuman-admin-list');
+  if (!el) return;
+  const rows = await safeApi('/pengumuman?all=1');
+  const arr  = Array.isArray(rows) ? rows : (rows.results || []);
+  const prio = { tinggi:'bg-red', normal:'bg', rendah:'bg-gray' };
+
+  el.innerHTML = arr.length
+    ? arr.map(p => `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="flex:1">
+              <span class="badge ${prio[p.prioritas]||'bg'}" style="margin-bottom:6px">${p.prioritas}</span>
+              <div style="font-weight:700;font-size:14px">${p.judul}</div>
+              <div style="font-size:13px;color:var(--txt2);margin-top:4px">${p.isi}</div>
+              ${p.tanggal_selesai ? `<div style="font-size:11px;color:var(--txt3);margin-top:4px">Berakhir: ${fDate(p.tanggal_selesai)}</div>` : ''}
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="hapusPengumuman(${p.id})" style="flex-shrink:0">✕</button>
+          </div>
+        </div>`).join('')
+    : '<div class="empty"><div class="ei">&#x1F4E2;</div><p>Belum ada pengumuman</p></div>';
+}
+
+function showAddPengumuman() {
+  showModal(`
+    <div class="modal-title">Tambah Pengumuman
+      <button onclick="closeModal()" class="btn btn-secondary btn-sm">&#x2715;</button>
+    </div>
+    <div class="fg"><label class="fl">Judul *</label>
+      <input class="fc" id="np-judul" placeholder="Judul pengumuman"></div>
+    <div class="fg"><label class="fl">Isi *</label>
+      <textarea class="fc" id="np-isi" rows="4" placeholder="Isi pengumuman..." style="resize:vertical"></textarea></div>
+    <div class="fg"><label class="fl">Prioritas</label>
+      <select class="fc" id="np-prio">
+        <option value="normal">Normal</option>
+        <option value="tinggi">Tinggi (ditampilkan paling atas)</option>
+        <option value="rendah">Rendah</option>
+      </select></div>
+    <div class="fg"><label class="fl">Berakhir Pada (opsional)</label>
+      <input type="date" class="fc" id="np-tgl"></div>
+    <button class="btn btn-primary" style="width:100%" onclick="savePengumuman()">Simpan</button>
+  `);
+}
+
+async function savePengumuman() {
+  const judul = document.getElementById('np-judul').value.trim();
+  const isi   = document.getElementById('np-isi').value.trim();
+  if (!judul || !isi) return toast('Judul dan isi wajib diisi', true);
+  await api('/pengumuman', 'POST', {
+    judul, isi,
+    prioritas:      document.getElementById('np-prio').value,
+    tanggal_selesai: document.getElementById('np-tgl').value || null,
+  });
+  toast('Pengumuman ditambahkan &#x2705;');
+  closeModal();
+  loadPengumumanAdmin();
+  loadDashboard(); // refresh beranda juga
+}
+
+async function hapusPengumuman(id) {
+  if (!confirm('Hapus pengumuman ini?')) return;
+  await api('/pengumuman/' + id, 'DELETE');
+  toast('Pengumuman dihapus');
+  loadPengumumanAdmin();
+  loadDashboard();
+}
+
+// ══════════════════════════════════════════════════════════
+// LAPORAN & EXPORT
+// ══════════════════════════════════════════════════════════
+async function loadRekap() {
+  const el = document.getElementById('rekap-grid');
+  if (!el) return;
+  const bulan = new Date().toISOString().slice(0,7);
+  const d = await safeApi('/laporan/rekap?bulan=' + bulan);
+  el.innerHTML = `
+    <div style="text-align:center">
+      <div style="font-size:22px;font-weight:800">${d.jamaah_aktif||0}</div>
+      <div style="font-size:11px;opacity:.8">Jamaah Aktif</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:22px;font-weight:800">Rp${fNum(d.total_iuran||0)}</div>
+      <div style="font-size:11px;opacity:.8">Total Iuran</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:22px;font-weight:800">${d.total_hadir||0}</div>
+      <div style="font-size:11px;opacity:.8">Total Hadir</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:22px;font-weight:800">${d.tunggakan_pkk||0}</div>
+      <div style="font-size:11px;opacity:.8">Tunggakan PKK</div>
+    </div>`;
+}
+
+async function exportLaporan(jenis, format) {
+  const bulanEl = document.getElementById(jenis === 'iuran' ? 'exp-iuran-bln' : 'exp-hadir-bln');
+  const bulan   = bulanEl?.value || new Date().toISOString().slice(0,7);
+  const param   = jenis === 'jamaah' ? '' : `?${jenis==='iuran'?'periode':'bulan'}=${bulan}`;
+
+  if (format === 'csv') {
+    // Download langsung via anchor
+    const url = API + `/laporan/${jenis}${param}${param?'&':'?'}format=csv`;
+    const a   = document.createElement('a');
+    a.href    = url;
+    a.setAttribute('download', `${jenis}-${bulan}.csv`);
+    // Tambahkan Authorization header via fetch lalu blob
+    try {
+      const res  = await fetch(url, { headers: { Authorization: 'Bearer ' + S.token } });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const burl = URL.createObjectURL(blob);
+      a.href     = burl;
+      a.click();
+      URL.revokeObjectURL(burl);
+      toast('File CSV diunduh &#x2705;');
+    } catch(e) { toast('Gagal download: ' + e.message, true); }
+    return;
+  }
+
+  // JSON: tampilkan preview tabel
+  const data = await safeApi(`/laporan/${jenis}${param}`);
+  const rows = data.data || [];
+  if (!rows.length) { toast('Tidak ada data'); return; }
+
+  const keys    = Object.keys(rows[0]).filter(k => !['id'].includes(k));
+  const preview = document.getElementById('laporan-preview');
+  preview.style.display = '';
+  preview.innerHTML = `
+    <div class="card" style="overflow-x:auto">
+      <div style="font-weight:700;margin-bottom:10px">
+        Preview ${jenis} ${bulan} — ${rows.length} baris
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr>${keys.map(k=>`<th style="padding:6px 8px;text-align:left;background:var(--g100);border-bottom:2px solid var(--g300)">${k}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${rows.slice(0,20).map(r=>`<tr>${keys.map(k=>`<td style="padding:6px 8px;border-bottom:1px solid var(--g100)">${r[k]??'-'}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+      ${rows.length>20?`<div style="font-size:12px;color:var(--txt3);padding:8px">Menampilkan 20 dari ${rows.length} baris. Download CSV untuk data lengkap.</div>`:''}
+    </div>`;
+  preview.scrollIntoView({ behavior:'smooth' });
+}
+
+// ══════════════════════════════════════════════════════════
+// PENGATURAN — ganti password, tambah admin
+// ══════════════════════════════════════════════════════════
+async function gantiPassword() {
+  const lama   = document.getElementById('pw-lama').value;
+  const baru   = document.getElementById('pw-baru').value;
+  const konfirm= document.getElementById('pw-konfirm').value;
+  if (!lama || !baru) return toast('Semua field wajib diisi', true);
+  if (baru.length < 6) return toast('Password baru minimal 6 karakter', true);
+  if (baru !== konfirm) return toast('Konfirmasi password tidak sama', true);
+  await api('/admin/ganti-password', 'POST', { password_lama: lama, password_baru: baru });
+  toast('Password berhasil diubah &#x2705;');
+  ['pw-lama','pw-baru','pw-konfirm'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function tambahAdmin() {
+  const username = document.getElementById('na-user').value.trim();
+  const password = document.getElementById('na-pass').value;
+  const admin_key= document.getElementById('na-key').value;
+  if (!username || !password || !admin_key) return toast('Semua field wajib diisi', true);
+  await api('/auth/register', 'POST', { username, password, role:'admin', admin_key }, false);
+  toast('Akun admin dibuat &#x2705;');
+  ['na-user','na-pass','na-key'].forEach(id => document.getElementById(id).value = '');
+}
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  );
+}
+</script>
+</body>
+</html>

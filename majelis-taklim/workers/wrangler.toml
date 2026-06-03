@@ -1,0 +1,45 @@
+# ============================================================
+# wrangler.toml — Majelis Taklim
+# Cloudflare Workers + D1 + Pages
+# ============================================================
+
+name = "majelis-taklim-api"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ---------- Routes ----------
+# Worker menangani semua /api/* request
+# Halaman statis dilayani oleh Cloudflare Pages
+
+[[routes]]
+pattern = "majelis-taklim.DOMAIN_KAMU.workers.dev/api/*"
+zone_name = "DOMAIN_KAMU"
+
+# ---------- D1 Database ----------
+[[d1_databases]]
+binding      = "DB"
+database_name = "majelis_taklim_db"
+database_id  = "ISI_SETELAH_d1_create"   # Diisi setelah: wrangler d1 create majelis_taklim_db
+
+# ---------- Environment Variables ----------
+[vars]
+ENVIRONMENT = "production"
+
+# ---------- Secrets (set via CLI, jangan tulis di sini) ----------
+# wrangler secret put JWT_SECRET
+# wrangler secret put ADMIN_KEY
+
+# ============================================================
+# Environment: development (local)
+# ============================================================
+[env.dev]
+name = "majelis-taklim-api-dev"
+
+[[env.dev.d1_databases]]
+binding       = "DB"
+database_name = "majelis_taklim_dev"
+database_id   = "ISI_DATABASE_ID_DEV"
+
+[env.dev.vars]
+ENVIRONMENT = "development"

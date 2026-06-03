@@ -1,0 +1,31 @@
+# ============================================================
+# Cloudflare Pages — _headers
+# Letakkan file ini di: pages/public/_headers
+# ============================================================
+
+# Security headers untuk semua halaman
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  X-XSS-Protection: 1; mode=block
+
+# Cache agresif untuk font dan ikon (immutable 1 tahun)
+/icons/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Cache medium untuk manifest dan sw (10 menit, agar update mudah)
+/manifest.json
+  Cache-Control: public, max-age=600
+
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# HTML tidak di-cache agar selalu fresh
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Cache bacaan data JS (1 hari)
+/bacaan/*
+  Cache-Control: public, max-age=86400

@@ -1,0 +1,10 @@
+# ============================================================
+# Cloudflare Pages — _redirects
+# SPA fallback: semua route diarahkan ke index.html
+# ============================================================
+
+# API requests di-proxy ke Worker
+/api/*  https://majelis-taklim-api.SUBDOMAIN_KAMU.workers.dev/api/:splat  200
+
+# SPA fallback
+/*  /index.html  200

@@ -1,0 +1,20 @@
+{
+  "name": "majelis-taklim-workers",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers backend untuk Majelis Taklim",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev":     "wrangler dev --local --persist",
+    "deploy":  "wrangler deploy",
+    "deploy:dev": "wrangler deploy --env dev",
+    "db:create":  "wrangler d1 create majelis_taklim_db",
+    "db:migrate": "wrangler d1 execute majelis_taklim_db --file=../migrations/0001_init.sql",
+    "db:migrate:dev": "wrangler d1 execute majelis_taklim_db --local --file=../migrations/0001_init.sql",
+    "db:studio":  "wrangler d1 execute majelis_taklim_db --command='SELECT * FROM jamaah LIMIT 5'",
+    "tail":    "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.80.0"
+  }
+}
