@@ -187,6 +187,61 @@ export async function handleSpinner(request, env, path) {
 
     return createResponse({ success: true });
   }
+// POST /api/spinner/reset
+if (request.method === 'POST' && subpath === 'reset') {
+  requireAdmin(request);
 
+  const { fase_id } = await request.json();
+
+  if (!fase_id) {
+    return createResponse(
+      { error: 'fase_id wajib diisi' },
+      400
+    );
+  }
+
+  // semua peserta kembali waiting
+  await env.DB.prepare(`
+    UPDATE peserta_fase
+    SET status = 'waiting',
+        urutan_terpilih = NULL,
+        updated_at = datetime('now')
+    WHERE fase_id = ?
+  `)
+  .bind(fase_id)
+  .run();
+
+  // hapus histori
+  await env.DB.prepare(`
+    DELETE FROM histori_giliran
+    WHERE fase_id = ?
+  `)
+  .bind(fase_id)
+  .run();
+
+  // aktifkan kembali fase
+  await env.DB.prepare(`
+    UPDATE fase_giliran
+    SET status = 'aktif',
+        selesai_at = NULL
+    WHERE id = ?
+  `)
+  .bind(fase_id)
+  .run();
+
+  await auditLog(
+    env,
+    request.user.id,
+    'RESET_FASE',
+    'fase_giliran',
+    fase_id,
+    {}
+  );
+
+  return createResponse({
+    success: true,
+    message: 'Fase berhasil direset'
+  });
+}
   return createResponse({ error: 'Route not found' }, 404);
 }
