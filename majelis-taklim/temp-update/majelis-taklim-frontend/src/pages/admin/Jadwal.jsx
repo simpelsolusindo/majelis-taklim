@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { jadwalApi, jamaahApi, kehadiranApi } from '../../api/services'
 import { Button, Input, Textarea, Modal, Table, Pagination, ConfirmDialog, Badge } from '../../components/ui'
-import { Plus, Edit, Trash2, Lightbulb } from 'lucide-react'
+import { Lightbulb } from 'lucide-react'
 import { formatDate, formatTime } from '../../utils/helpers'
 
 const EMPTY_FORM = { tanggal: '', waktu: '19:30', lokasi: '', keterangan: '' }
@@ -25,15 +26,16 @@ function getUsulTanggal(jadwals) {
 }
 
 export default function AdminJadwal() {
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [page, setPage]       = useState(1)
   const [modal, setModal]     = useState(false)
   const [form, setForm]       = useState(EMPTY_FORM)
-  const [editId, setEditId]   = useState(null)
-  const [deleteId, setDeleteId] = useState(null)
+  
   const [saving, setSaving]   = useState(false)
   const [showTip, setShowTip] = useState(false)
   const [kehadiranModal, setKehadiranModal] = useState(false)
+  const [modeKehadiran, setModeKehadiran] = useState('input')
   const [jadwalAktif, setJadwalAktif] = useState(null)
   const [jamaahHadir, setJamaahHadir] = useState([])
   const { data, isLoading } = useQuery({
@@ -64,10 +66,7 @@ console.log(
   'HOST ID 2',
   jamaahList.find(j => Number(j.id) === 2)
 )
-  const deleteMut = useMutation({
-    mutationFn: id => jadwalApi.delete(id),
-    onSuccess:  () => { qc.invalidateQueries(['admin-jadwal']); setDeleteId(null) }
-  })
+  
 
   function openAdd() {
     const usul = getUsulTanggal(jadwals)
@@ -77,15 +76,36 @@ console.log(
     setModal(true)
   }
 
-  function openEdit(j) {
-    setForm({ tanggal: j.tanggal || '', waktu: j.waktu || '19:30', lokasi: j.lokasi || '', keterangan: j.keterangan || '' })
-    setEditId(j.id)
-    setShowTip(false)
-    setModal(true)
-  }
-  function openKehadiran(jadwal) {
+  
+  async function openKehadiran(jadwal) {
   setJadwalAktif(jadwal)
+console.log(
+  'OPEN KEHADIRAN',
+  jadwal.id,
+  jadwal.status
+)
+  // JADWAL SUDAH SELESAI
+  if (jadwal.status === 'selesai') {
+    const res = await kehadiranApi.getAll({
+      jadwal_id: jadwal.id
+    })
 
+    const data = res.data || res
+
+    setJamaahHadir(
+      data.map(item => ({
+        id: item.jamaah_id,
+        nama: item.nama,
+        hadir: true
+      }))
+    )
+
+    setModeKehadiran('lihat')
+setKehadiranModal(true)
+return
+  }
+
+  // JADWAL AKTIF
   const aktif = jamaahList
     .filter(j => j.status === 'aktif')
     .map(j => ({
@@ -95,18 +115,34 @@ console.log(
     }))
 
   setJamaahHadir(aktif)
-  setKehadiranModal(true)
+
+setModeKehadiran('input')
+setKehadiranModal(true)
 }
   async function handleSave() {
-    if (!form.tanggal) return
-    setSaving(true)
-    try {
-      if (editId) await jadwalApi.update(editId, form)
-      else await jadwalApi.create(form)
-      qc.invalidateQueries(['admin-jadwal'])
-      setModal(false)
-    } finally { setSaving(false) }
+  console.log('FORM AKAN DIKIRIM', form)
+
+  if (!form.tanggal) return
+
+  setSaving(true)
+
+  try {
+    let res
+
+    res = await jadwalApi.create(form)
+
+    console.log('RESPON JADWAL', res)
+
+    qc.invalidateQueries(['admin-jadwal'])
+    setModal(false)
+
+  } catch (err) {
+    console.error('GAGAL SIMPAN JADWAL', err)
+    console.error('DETAIL', err?.response?.data)
+  } finally {
+    setSaving(false)
   }
+} 
 console.log('JAMAAH LIST', jamaahList)
 async function simpanKehadiran() {
   if (!jadwalAktif) return
@@ -120,7 +156,10 @@ async function simpanKehadiran() {
 
   console.log('TOKEN', localStorage.getItem('token'))
   console.log('ORIGIN', window.location.origin)
-
+  console.log('KIRIM KEHADIRAN', {
+  jadwal_id: jadwalAktif.id,
+  absensi
+})
   await kehadiranApi.create({
   jadwal_id: jadwalAktif.id,
   absensi
@@ -129,7 +168,12 @@ async function simpanKehadiran() {
   
 
   setKehadiranModal(false)
+  navigate('/admin/spinner')
 }
+console.log(
+  'ROW JADWAL PERTAMA',
+  JSON.stringify(jadwals[0], null, 2)
+)
   const columns = [
     {
       key: 'tanggal', title: 'Tanggal',
@@ -145,13 +189,21 @@ async function simpanKehadiran() {
 {
   key: 'host_id',
   title: 'Host',
-  render: (val) => {
+  render: (val, row) => {
+
+    console.log('HOST CELL', {
+      val,
+      row
+    })
+
     const host = jamaahList.find(
       j => Number(j.id) === Number(val)
     )
 
+    console.log('HOST DITEMUKAN', host)
+
     return (
-      <span className="text-sm font-medium text-emerald-600">
+      <span>
         {host?.nama || '-'}
       </span>
     )
@@ -162,42 +214,36 @@ async function simpanKehadiran() {
   key: 'id',
   title: 'Aksi',
   render: (_, row) => (
-    <div className="flex gap-1 flex-wrap">
+    <div className="flex gap-2 flex-wrap">
 
-      <button
-        className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700"
-        onClick={() => openKehadiran(row)}
-      >
-        Hadir
-      </button>
+      {row.status === 'selesai' ? (
+        <>
+          <Badge color="green">
+            ✓ Selesai
+          </Badge>
 
-      <button
-        className="px-2 py-1 text-xs rounded bg-amber-100 text-amber-700"
-        onClick={() => console.log('IURAN', row)}
-      >
-        Iuran
-      </button>
+          <button
+            className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700"
+            onClick={() => openKehadiran(row)}
+          >
+            Lihat Kehadiran
+          </button>
 
-      <button
-        className="px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-700"
-        onClick={() => console.log('SELESAIKAN', row)}
-      >
-        Selesai
-      </button>
-
-      <button
-        onClick={() => openEdit(row)}
-        className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
-      >
-        <Edit className="w-3.5 h-3.5" />
-      </button>
-
-      <button
-        onClick={() => setDeleteId(row.id)}
-        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+          <button
+            className="px-2 py-1 text-xs rounded bg-amber-100 text-amber-700"
+            onClick={() => console.log('EDIT IURAN', row)}
+          >
+            Edit Iuran
+          </button>
+        </>
+      ) : (
+        <button
+          className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-700"
+          onClick={() => openKehadiran(row)}
+        >
+          Input Kehadiran
+        </button>
+      )}
 
     </div>
   )
@@ -211,7 +257,7 @@ async function simpanKehadiran() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Jadwal Pertemuan</h1>
           <p className="text-sm text-gray-500">Pertemuan rutin setiap 2 minggu, malam Minggu</p>
         </div>
-        <Button onClick={openAdd} size="sm"><Plus className="w-4 h-4" /> Tambah</Button>
+        
       </div>
 
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 px-6 py-4">
@@ -219,7 +265,7 @@ async function simpanKehadiran() {
         <Pagination page={page} totalPages={totalPages} onChange={setPage} />
       </div>
 
-      <Modal isOpen={modal} onClose={() => setModal(false)} title={editId ? 'Edit Jadwal' : 'Tambah Jadwal'}>
+      <Modal isOpen={modal} onClose={() => setModal(false)} title="Tambah Jadwal">
         <div className="space-y-4">
           {/* Info usulan otomatis */}
           {showTip && (
@@ -240,14 +286,18 @@ async function simpanKehadiran() {
             value={form.keterangan} onChange={e => setForm(f => ({ ...f, keterangan: e.target.value }))} />
           <div className="flex gap-3 pt-1">
             <Button variant="secondary" className="flex-1" onClick={() => setModal(false)}>Batal</Button>
-            <Button className="flex-1" loading={saving} onClick={handleSave}>{editId ? 'Simpan' : 'Tambah'}</Button>
+            <Button
+  className="flex-1"
+  loading={saving}
+  onClick={handleSave}
+>
+  Tambah
+</Button>
           </div>
         </div>
       </Modal>
 
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)}
-        onConfirm={() => deleteMut.mutate(deleteId)} loading={deleteMut.isPending}
-        title="Hapus Jadwal" message="Hapus jadwal pertemuan ini?" />
+      
       <Modal
   isOpen={kehadiranModal}
   onClose={() => setKehadiranModal(false)}
@@ -261,25 +311,30 @@ async function simpanKehadiran() {
         className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50"
       >
         <input
-          type="checkbox"
-          checked={j.hadir}
-          onChange={(e) => {
-            const copy = [...jamaahHadir]
-            copy[index].hadir = e.target.checked
-            setJamaahHadir(copy)
-          }}
-        />
+  type="checkbox"
+  checked={j.hadir}
+  disabled={modeKehadiran === 'lihat'}
+  onChange={(e) => {
+    if (modeKehadiran === 'lihat') return
+
+    const copy = [...jamaahHadir]
+    copy[index].hadir = e.target.checked
+    setJamaahHadir(copy)
+  }}
+/>
 
         <span>{j.nama}</span>
       </label>
     ))}
 
-    <Button
-      className="w-full mt-4"
-      onClick={simpanKehadiran}
-    >
-      Simpan Kehadiran
-    </Button>
+    {modeKehadiran === 'input' && (
+  <Button
+    className="w-full mt-4"
+    onClick={simpanKehadiran}
+  >
+    Simpan Kehadiran
+  </Button>
+)}
 
   </div>
 </Modal>

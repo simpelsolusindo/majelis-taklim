@@ -91,6 +91,7 @@ export const spinnerApi = {
   putar: (data) => client.post('/spinner/putar', data),
   // Simpan hasil putaran ke backend — endpoint wajib tersedia
   saveHasil: (data) => client.post('/spinner/hasil', data),
+  konfirmasi: (data) => client.post('/spinner/konfirmasi', data),
   // Tandai jamaah sebagai host berikutnya — endpoint wajib tersedia
   setNextHost: (jamaahId, data) => client.put(`/jamaah/${jamaahId}/next-host`, data),
   // Riwayat putaran — aktifkan query enabled:true setelah endpoint ini tersedia

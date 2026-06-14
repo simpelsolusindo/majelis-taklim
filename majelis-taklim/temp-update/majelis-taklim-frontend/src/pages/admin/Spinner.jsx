@@ -298,12 +298,7 @@ const w = participants[idx]
           </div>
         )}
       </div>
-      {winner && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-2xl px-6 py-3 text-center animate-bounce">
-          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">🏆 Terpilih!</p>
-          <p className="text-xl font-bold text-amber-800 dark:text-amber-200">{winner.nama || winner.name}</p>
-        </div>
-      )}
+
       <div className="flex flex-col items-center gap-1">
         <Button
           onClick={spin}
@@ -341,6 +336,7 @@ export default function AdminSpinner() {
   // ── State workflow hasil spinner ─────────────────────────
   const [hasilModal, setHasilModal] = useState(false)
   const [hasilWinner, setHasilWinner] = useState(null)
+  const [winnerAsli, setWinnerAsli] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [savedJadwal, setSavedJadwal] = useState(null)
@@ -352,6 +348,14 @@ export default function AdminSpinner() {
     lokasi: '',
     keterangan: ''
   })
+useEffect(() => {
+  if (!hasilWinner) return
+
+  setJadwalForm(prev => ({
+    ...prev,
+    lokasi: hasilWinner.alamat || ''
+  }))
+}, [hasilWinner])
 
   // ── Queries ──────────────────────────────────────────────
   const { data: fasesData } = useQuery({
@@ -395,12 +399,17 @@ export default function AdminSpinner() {
   const riwayat = riwayatData?.data || riwayatData || []
 
   const { data: faseDetail, isError: faseError, error: faseErrDetail } = useQuery({
-    queryKey: ['spinner-fase', selectedFase],
-    queryFn: () => spinnerApi.getFaseById(selectedFase).then(r => r.data),
-    enabled: !!selectedFase
-  })
+  queryKey: ['spinner-fase', selectedFase],
+  queryFn: () => spinnerApi.getFaseById(selectedFase).then(r => r.data),
+  enabled: !!selectedFase
+})
 
-  const createFaseMut = useMutation({
+console.log('selectedFase=', selectedFase)
+console.log('faseDetail=', faseDetail)
+console.log('faseError=', faseError)
+console.log('faseErrDetail=', faseErrDetail)
+
+const createFaseMut = useMutation({
     mutationFn: (data) => spinnerApi.createFase(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['spinner-fases'] })
@@ -411,6 +420,12 @@ export default function AdminSpinner() {
 
   // ── Derived state ────────────────────────────────────────
   const fases = fasesData?.data || fasesData || []
+useEffect(() => {
+  if (!selectedFase && fases.length > 0) {
+    setSelectedFase(fases[0].id)
+  }
+}, [fases, selectedFase])
+console.log('FASES =', fases)
   const jamaahList = jamaahData?.data || jamaahData || []
   const rawJadwal =
   jadwalTerakhirData?.data || jadwalTerakhirData || []
@@ -421,7 +436,7 @@ const jadwalTerakhir = Array.isArray(rawJadwal)
 console.log('jadwalTerakhir=', jadwalTerakhir)
   // ── Validasi workflow: spinner hanya aktif jika pertemuan selesai + iuran dicatat
   //    Backend wajib sediakan field status & iuran_sudah_dicatat di GET /jadwal/terakhir
-  const workflowSiap = !loadingJadwal
+   const workflowSiap = !loadingJadwal && !errorJadwal
     && !errorJadwal
     && jadwalTerakhir !== null
     && jadwalTerakhir.status === 'selesai'
@@ -430,11 +445,28 @@ console.log('jadwalTerakhir=', jadwalTerakhir)
   // Hanya jamaah yang belum pernah host di siklus ini.
   // Backend wajib sediakan field sudah_pernah_host per jamaah.
   const jamaahBelumHost = jamaahList.filter(j => !j.sudah_pernah_host)
-
+  console.log('FASE DETAIL', faseDetail)
   const pesertaFase = faseDetail?.peserta || faseDetail?.data?.peserta || []
-  const participants = selectedFase
-    ? pesertaFase.filter(j => !j.sudah_pernah_host)
-    : jamaahBelumHost
+  const totalPeserta = pesertaFase.length
+
+const sudahGiliran = pesertaFase.filter(
+  p => p.status === 'terpilih'
+).length
+
+const belumGiliran = pesertaFase.filter(
+  p => p.status === 'waiting'
+).length
+
+const progressPersen =
+  totalPeserta > 0
+    ? Math.round((sudahGiliran / totalPeserta) * 100)
+    : 0
+  console.log(
+  'PESERTA FASE',
+  JSON.stringify(pesertaFase, null, 2)
+)
+  const participants = pesertaFase
+    
 
   // ── handleResult: dipanggil SpinWheel setelah animasi berhenti ───────────────
   function handleResult(winner) {
@@ -442,7 +474,9 @@ console.log('jadwalTerakhir=', jadwalTerakhir)
     // KEBIJAKAN: sekali roda berhenti, hasil sah. Tidak ada tombol Batalkan.
     setHasPendingWinner(true)
 
+    setWinnerAsli(winner)
     setHasilWinner(winner)
+    console.log('WINNER', winner)
     setSaveError(null)
     setSavedJadwal(null)
 
@@ -453,11 +487,11 @@ console.log('jadwalTerakhir=', jadwalTerakhir)
     const fallbackDate = formatDateLocal(fallbackDateObj)
 
     setJadwalForm({
-      tanggal: getDefaultNextDate(tanggalRef) || fallbackDate,
-      waktu: '19:30',
-      lokasi: winner.nama || winner.name || '',
-      keterangan: `Tuan rumah terpilih via Spinner — ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
-    })
+  tanggal: getDefaultNextDate(tanggalRef) || fallbackDate,
+  waktu: '19:30',
+  lokasi: winner.alamat || winner.nama || winner.name || '',
+  keterangan: `Tuan rumah terpilih via Spinner — ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
+})
 
     setHasilModal(true)
   }
@@ -487,7 +521,8 @@ console.log('jadwalTerakhir=', jadwalTerakhir)
       // Endpoint: POST /spinner/hasil
       // Backend wajib tersedia sebelum fitur ini final.
       console.log('STEP 1 - save hasil')
-
+// STEP 1 sementara dinonaktifkan
+/*
 const hasilRes = await spinnerApi.saveHasil({
   jamaah_id: hasilWinner.id,
   nama_terpilih: hasilWinner.nama || hasilWinner.name,
@@ -497,24 +532,34 @@ const hasilRes = await spinnerApi.saveHasil({
 
 console.log('STEP 1 OK', hasilRes)
       hasilId = hasilRes?.data?.id || hasilRes?.id || null
-
+*/
       // Langkah 2: Tandai jamaah terpilih sebagai host berikutnya
       // Endpoint: PUT /jamaah/:id/next-host
       // Backend wajib tersedia sebelum fitur ini final.
+
       if (hasilWinner.id) {
   console.log('STEP 2 - set next host')
-
+// STEP 2 sementara dinonaktifkan
+/*
   await spinnerApi.setNextHost(hasilWinner.id, {
     is_next_host: true,
     tanggal_host: jadwalForm.tanggal
   })
-
+*/
   console.log('STEP 2 OK')
 }
 
       // Langkah 3: Buat jadwal pertemuan otomatis dengan host_id
       // Endpoint: POST /jadwal
       // Tabel jadwal wajib memiliki kolom host_id (migrasi database diperlukan).
+ console.log('STEP 2.5 - konfirmasi spinner')
+
+await spinnerApi.konfirmasi({
+  fase_id: fases[0]?.id,
+  jamaah_id: hasilWinner.id
+})
+
+console.log('STEP 2.5 OK')     
       console.log('STEP 3 - create jadwal')
 
 console.log('HASIL WINNER FULL', hasilWinner)
@@ -582,6 +627,7 @@ console.log(
     if (!savedJadwal && !saveError) return  // Jangan tutup jika belum simpan
     setHasilModal(false)
     setHasilWinner(null)
+    setWinnerAsli(null)
     setSaveError(null)
     setSavedJadwal(null)
     setJadwalForm({ tanggal: '', waktu: '19:30', lokasi: '', keterangan: '' })
@@ -608,6 +654,7 @@ console.log(
       </div>
 
       {/* ── Banner Validasi Workflow Pertemuan (Poin 1) ── */}
+      
       <WorkflowGate
         jadwalTerakhir={jadwalTerakhir}
         loadingJadwal={loadingJadwal}
@@ -616,21 +663,41 @@ console.log(
 
       {/* Fase Selector — hanya tampil jika workflow siap */}
       {workflowSiap && (
-        <div className="flex gap-2">
-          <select
-            value={selectedFase || ''}
-            onChange={e => setSelectedFase(e.target.value ? Number(e.target.value) : null)}
-            className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="">Pilih fase / gunakan semua jamaah</option>
-            {fases.map(f => <option key={f.id} value={f.id}>{f.nama}</option>)}
-          </select>
-          <Button size="sm" variant="secondary" onClick={() => setFaseModal(true)}>
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
+  <Card className="p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-semibold">
+          Fase Aktif: {faseDetail?.fase?.nama || 'Fase 1'}
+        </p>
 
+        <p className="text-xs text-gray-500 mt-1">
+          Peserta: {totalPeserta}
+        </p>
+
+        <p className="text-xs text-gray-500">
+          Sudah Host: {sudahGiliran}
+        </p>
+
+        <p className="text-xs text-gray-500">
+          Belum Host: {belumGiliran}
+        </p>
+      </div>
+
+      <div className="text-right">
+        <p className="text-sm font-bold text-emerald-600">
+          {progressPersen}%
+        </p>
+      </div>
+    </div>
+
+    <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
+      <div
+        className="bg-emerald-500 h-2 rounded-full"
+        style={{ width: `${progressPersen}%` }}
+      />
+    </div>
+  </Card>
+)}
       {/* Error fase gagal dimuat */}
       {workflowSiap && selectedFase && faseError && (
         <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
@@ -749,16 +816,64 @@ console.log(
           {/* Pemenang */}
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 text-center">
             <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">🏆 Tuan Rumah Berikutnya</p>
-            <p className="text-lg font-bold text-amber-800 dark:text-amber-200">
-              {hasilWinner?.nama || hasilWinner?.name}
-            </p>
+            <div className="space-y-1">
+  <p className="text-xl font-bold text-amber-800 dark:text-amber-200">
+    {hasilWinner?.nama || hasilWinner?.name}
+  </p>
+  <div className="space-y-2">
+  <label className="block text-xs font-medium text-gray-500">
+    Ganti Peserta (opsional)
+  </label>
+
+  <select
+    value={hasilWinner?.id || ''}
+    onChange={(e) => {
+      const selected = participants.find(
+        p => String(p.id) === e.target.value
+      )
+      if (selected) setHasilWinner(selected)
+    }}
+    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-800"
+  >
+    {participants.map((p) => (
+      <option key={p.id} value={p.id}>
+        {p.nama}
+      </option>
+    ))}
+  </select>
+
+  {winnerAsli && hasilWinner?.id !== winnerAsli.id && (
+    <p className="text-xs text-amber-600">
+      Hasil spinner: <b>{winnerAsli.nama}</b> → Diganti menjadi <b>{hasilWinner.nama}</b>
+    </p>
+  )}
+</div>
+
+  {hasilWinner?.alamat && (
+    <p className="text-sm text-amber-700 dark:text-amber-300">
+      📍 {hasilWinner.alamat}
+    </p>
+  )}
+
+  <p className="text-xs text-amber-600 dark:text-amber-400">
+    Putaran ke-{sudahGiliran + 1}
+  </p>
+
+  <p className="text-xs text-amber-600 dark:text-amber-400">
+    Fase {selectedFase || 1}
+  </p>
+</div>
             {!savedJadwal && (
               <p className="text-xs text-amber-500 dark:text-amber-400 mt-1">
                 Hasil ini sah dan tidak dapat dibatalkan. Simpan untuk melanjutkan.
               </p>
             )}
           </div>
+<div className="mt-3 text-left bg-white/50 dark:bg-black/20 rounded-lg p-3">
+  
 
+  
+</div>
           {/* Sudah tersimpan */}
           {savedJadwal ? (
             <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 space-y-1">

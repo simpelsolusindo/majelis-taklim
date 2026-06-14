@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { iuranApi, jamaahApi, jenisIuranApi } from '../../api/services'
+import { iuranApi, jamaahApi } from '../../api/services'
 import { Button, Input, Select, Modal, Table, Pagination, ConfirmDialog, Badge } from '../../components/ui'
 import { Plus, Edit, Trash2, Filter } from 'lucide-react'
 import { formatCurrency, formatDate, currentMonth } from '../../utils/helpers'
 
-const EMPTY_FORM = { jamaah_id: '', jenis_iuran_id: '', jumlah: '', periode: currentMonth(), keterangan: '', status: 'lunas' }
+const EMPTY_FORM = {
+  jamaah_id: '',
+  nominal: '',
+  tanggal_bayar: new Date().toISOString().slice(0, 10),
+  periode: currentMonth(),
+  keterangan: ''
+}
 
 export default function AdminIuran() {
   const qc = useQueryClient()
@@ -27,15 +33,12 @@ export default function AdminIuran() {
     queryFn: () => jamaahApi.getAll({ limit: 200 }).then(r => r.data)
   })
 
-  const { data: jenisData } = useQuery({
-    queryKey: ['jenis-iuran'],
-    queryFn: () => jenisIuranApi.getAll().then(r => r.data)
-  })
+  
 
   const iurans = data?.data || data || []
   const totalPages = data?.totalPages || 1
   const jamaahList = jamaahData?.data || jamaahData || []
-  const jenisList = jenisData?.data || jenisData || []
+  
 
   const deleteMut = useMutation({
     mutationFn: (id) => iuranApi.delete(id),
@@ -46,18 +49,18 @@ export default function AdminIuran() {
   function openEdit(row) {
     setForm({
       jamaah_id: row.jamaah_id || '',
-      jenis_iuran_id: row.jenis_iuran_id || '',
-      jumlah: row.jumlah || '',
-      periode: row.periode || currentMonth(),
-      keterangan: row.keterangan || '',
-      status: row.status || 'lunas'
+  nominal: row.nominal || '',
+  tanggal_bayar: row.tanggal_bayar || new Date().toISOString().slice(0, 10),
+  periode: row.periode || currentMonth(),
+  keterangan: row.keterangan || ''
+
     })
     setEditId(row.id)
     setModal(true)
   }
 
   async function handleSave() {
-    if (!form.jamaah_id || !form.jumlah) return
+    if (!form.jamaah_id || !form.nominal || !form.tanggal_bayar) return
     setSaving(true)
     try {
       if (editId) await iuranApi.update(editId, form)
@@ -74,25 +77,21 @@ export default function AdminIuran() {
       render: (val, row) => <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{val || row.nama || '-'}</p>
     },
     {
-      key: 'jenis_nama',
-      title: 'Jenis',
-      render: (val) => <span className="text-xs text-gray-600 dark:text-gray-400">{val || '-'}</span>
-    },
-    {
-      key: 'jumlah',
-      title: 'Jumlah',
-      render: (val) => <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(val)}</span>
-    },
+  key: 'nominal',
+  title: 'Jumlah',
+  render: (val) => (
+    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+      {formatCurrency(val)}
+    </span>
+  )
+},
     {
       key: 'periode',
       title: 'Periode',
       render: (val) => <span className="text-xs text-gray-500">{val || '-'}</span>
     },
-    {
-      key: 'status',
-      title: 'Status',
-      render: (val) => <Badge color={val === 'lunas' ? 'emerald' : 'amber'}>{val === 'lunas' ? 'Lunas' : 'Belum'}</Badge>
-    },
+    
+      
     {
       key: 'id',
       title: 'Aksi',
@@ -152,16 +151,15 @@ export default function AdminIuran() {
             <option value="">Pilih jamaah</option>
             {jamaahList.map(j => <option key={j.id} value={j.id}>{j.nama}</option>)}
           </Select>
-          <Select label="Jenis Iuran" value={form.jenis_iuran_id} onChange={e => setForm(f => ({ ...f, jenis_iuran_id: e.target.value }))}>
-            <option value="">Pilih jenis iuran</option>
-            {jenisList.map(j => <option key={j.id} value={j.id}>{j.nama}</option>)}
-          </Select>
-          <Input label="Jumlah (Rp)*" type="number" placeholder="0" value={form.jumlah} onChange={e => setForm(f => ({ ...f, jumlah: e.target.value }))} />
+          <Input
+  label="Jumlah (Rp)*"
+  type="number"
+  placeholder="0"
+  value={form.nominal}
+  onChange={e => setForm(f => ({ ...f, nominal: e.target.value }))}
+ />
+          <Input label="Tanggal Bayar*" type="date" value={form.tanggal_bayar} onChange={e => setForm(f => ({ ...f, tanggal_bayar: e.target.value }))} />
           <Input label="Periode" type="month" value={form.periode} onChange={e => setForm(f => ({ ...f, periode: e.target.value }))} />
-          <Select label="Status" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-            <option value="lunas">Lunas</option>
-            <option value="belum">Belum Lunas</option>
-          </Select>
           <Input label="Keterangan" placeholder="Opsional" value={form.keterangan} onChange={e => setForm(f => ({ ...f, keterangan: e.target.value }))} />
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setModal(false)}>Batal</Button>
