@@ -383,156 +383,366 @@ export const TAHLIL = (namaAlmarhum = []) => {
     "innaka samii'un qariibun mujiibud-da'awaat"
 
   const data = [
+    // 1. Al-Fatihah (hadiah/pembuka)
     {
-      id: "th-tawassul-note",
-      label: "Tawassul",
-      jenis: "section",
-      catatan: "Baca Tawassul lengkap (lihat menu Tawassul)",
-    },
-    {
-      id: "th-fatihah",
-      label: "Al-Fatihah (1x)",
+      id: "th-fatihah-pembuka",
+      label: "Al-Fātiḥah — Hadiah/Pembuka (1x)",
       arab: QURAN.alFatihah.arab,
       latin: QURAN.alFatihah.latin,
       terjemahan: QURAN.alFatihah.terjemahan,
       ulang: 1,
     },
+    // 2. Al-Ikhlas
     {
       id: "th-ikhlas",
-      label: "Al-Ikhlas (3x)",
+      label: "Surat Al-Ikhlāṣ (1x)",
       arab: QURAN.alIkhlas.arab,
       latin: QURAN.alIkhlas.latin,
       terjemahan: QURAN.alIkhlas.terjemahan,
-      ulang: 3,
+      ulang: 1,
     },
+    // 3. Tahlil setelah Al-Ikhlas
+    {
+      id: "th-tahlil-1",
+      label: "Tahlil (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ وَاللهُ أَكْبَرُ",
+      latin: "Laa ilaaha illallaahu wallaahu akbar",
+      terjemahan: "Tiada tuhan selain Allah, dan Allah Maha Besar.",
+      ulang: 1,
+      besar: true,
+    },
+    // 4. Al-Falaq
     {
       id: "th-falaq",
-      label: "Al-Falaq (1x)",
+      label: "Surat Al-Falaq (1x)",
       arab: QURAN.alFalaq.arab,
       latin: QURAN.alFalaq.latin,
       terjemahan: QURAN.alFalaq.terjemahan,
       ulang: 1,
     },
+    // 5. Tahlil setelah Al-Falaq
+    {
+      id: "th-tahlil-2",
+      label: "Tahlil (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ وَاللهُ أَكْبَرُ",
+      latin: "Laa ilaaha illallaahu wallaahu akbar",
+      terjemahan: "Tiada tuhan selain Allah, dan Allah Maha Besar.",
+      ulang: 1,
+      besar: true,
+    },
+    // 6. An-Nas
     {
       id: "th-nas",
-      label: "An-Nas (1x)",
+      label: "Surat An-Nās (1x)",
       arab: QURAN.anNas.arab,
       latin: QURAN.anNas.latin,
       terjemahan: QURAN.anNas.terjemahan,
       ulang: 1,
     },
+    // 7. Tahlil setelah An-Nas
+    {
+      id: "th-tahlil-3",
+      label: "Tahlil (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ وَاللهُ أَكْبَرُ",
+      latin: "Laa ilaaha illallaahu wallaahu akbar",
+      terjemahan: "Tiada tuhan selain Allah, dan Allah Maha Besar.",
+      ulang: 1,
+      besar: true,
+    },
+    // 8. Al-Fatihah
+    {
+      id: "th-fatihah",
+      label: "Surat Al-Fātiḥah (1x)",
+      arab: QURAN.alFatihah.arab,
+      latin: QURAN.alFatihah.latin,
+      terjemahan: QURAN.alFatihah.terjemahan,
+      ulang: 1,
+    },
+    // 9. Tahlil setelah Al-Fatihah
+    {
+      id: "th-tahlil-4",
+      label: "Tahlil (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ وَاللهُ أَكْبَرُ",
+      latin: "Laa ilaaha illallaahu wallaahu akbar",
+      terjemahan: "Tiada tuhan selain Allah, dan Allah Maha Besar.",
+      ulang: 1,
+      besar: true,
+    },
+    // 10. Al-Baqarah ayat 1-5
     {
       id: "th-baqarah-awal",
-      label: "Awal Al-Baqarah (Ayat 1-5)",
+      label: "Surat Al-Baqarah Ayat 1–5 (1x)",
       arab: QURAN.alBaqarahAwal.arab,
       latin: QURAN.alBaqarahAwal.latin,
       terjemahan: QURAN.alBaqarahAwal.terjemahan,
       ulang: 1,
     },
+    // 11. Ayat Kursi (Al-Baqarah: 255)
     {
       id: "th-ayat-kursi",
-      label: "Ayat Kursi (1x)",
+      label: "Ayat Kursi — Al-Baqarah: 255 (1x)",
       arab: QURAN.ayatKursi.arab,
       latin: QURAN.ayatKursi.latin,
       terjemahan: QURAN.ayatKursi.terjemahan,
       ulang: 1,
     },
+    // 12. Al-Baqarah ayat 284-286
     {
       id: "th-baqarah-akhir",
-      label: "Akhir Al-Baqarah (Ayat 285-286)",
-      arab: QURAN.alBaqarahAkhir.arab,
-      latin: QURAN.alBaqarahAkhir.latin,
-      terjemahan: QURAN.alBaqarahAkhir.terjemahan,
+      label: "Al-Baqarah Ayat 284–286 (1x)",
+      arab: "لِلَّهِ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ وَإِن تُبْدُوا مَا فِي أَنفُسِكُمْ أَوْ تُخْفُوهُ يُحَاسِبْكُم بِهِ اللهُ فَيَغْفِرُ لِمَن يَشَاءُ وَيُعَذِّبُ مَن يَشَاءُ وَاللهُ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ ۝ " + QURAN.alBaqarahAkhir.arab,
+      latin: "Lillaahi maa fis-samaawaati wa maa fil-ardl, wa in tubduu maa fii anfusikum aw tukhfuuhu yuhaasibkum bihillaah, fayaghfiru liman yasyaa-u wa yu'adzdzibu man yasyaa-u, wallaahu 'alaa kulli syai-in qadiir. " + QURAN.alBaqarahAkhir.latin,
+      terjemahan: "Milik Allah-lah apa yang ada di langit dan apa yang ada di bumi. Jika kamu menyatakan apa yang ada di dalam hatimu atau kamu menyembunyikannya, niscaya Allah memperhitungkannya bagimu. Dia mengampuni siapa yang Dia kehendaki dan mengazab siapa yang Dia kehendaki. Allah Mahakuasa atas segala sesuatu. " + QURAN.alBaqarahAkhir.terjemahan,
       ulang: 1,
     },
+    // 13. Doa: Irhamna ya arhamar rahimin
+    {
+      id: "th-doa-rahmat",
+      label: "Doa Rahmat (1x)",
+      arab: "اِرْحَمْنَا يَا أَرْحَمَ الرَّاحِمِيْنَ",
+      latin: "Irhamna yaa arhamar-raahimiin",
+      terjemahan: "Kasihanilah kami, wahai Dzat Yang Maha Penyayang di antara para penyayang.",
+      ulang: 1,
+    },
+    // 14. Doa: Allahummashshrif annas-su'a
+    {
+      id: "th-doa-sharf",
+      label: "Doa Tolak Keburukan (1x)",
+      arab: "اَللَّهُمَّ اصْرِفْ عَنَّا السُّوءَ بِمَا شِئْتَ وَكَيْفَ شِئْتَ إِنَّكَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ",
+      latin: "Allahummashshrif 'annas-suu-a bimaa syi'ta wa kaifa syi'ta innaka 'alaa kulli syai-in qadiir",
+      terjemahan: "Ya Allah, jauhkanlah dari kami keburukan dengan cara yang Engkau kehendaki dan bagaimanapun Engkau kehendaki. Sesungguhnya Engkau Mahakuasa atas segala sesuatu.",
+      ulang: 1,
+    },
+    // 15. Ayat salam kepada Ahlul Bait
+    {
+      id: "th-salam-ahlulbait",
+      label: "Salam kepada Ahlul Bait (1x)",
+      arab: "سَلَامٌ عَلَى آلِ يَاسِيْنَ",
+      latin: "Salaamun 'alaa aali Yaasiin",
+      terjemahan: "Salam sejahtera atas keluarga Yasin (Ahlul Bait Nabi ﷺ).",
+      ulang: 1,
+    },
+    // 16. Ayat shalawat (QS. Al-Ahzab: 56)
+    {
+      id: "th-ayat-shalawat",
+      label: "Ayat Shalawat — Al-Ahzab: 56 (1x)",
+      arab: "إِنَّ اللهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ يَا أَيُّهَا الَّذِينَ آمَنُوا صَلُّوا عَلَيْهِ وَسَلِّمُوا تَسْلِيمًا",
+      latin: "Innallaaha wa malaa-ikatahuu yushalluuna 'alan-nabiyy, yaa ayyuhalladziina aamanuu shalluu 'alaihi wa sallimuu tasliimaa",
+      terjemahan: "Sesungguhnya Allah dan para malaikat-Nya bershalawat untuk Nabi. Wahai orang-orang yang beriman! Bershalawatlah kamu untuk Nabi dan ucapkanlah salam dengan penuh penghormatan kepadanya. (QS. Al-Ahzab: 56)",
+      ulang: 1,
+    },
+    // 17. Shalawat Nurul Huda
+    {
+      id: "th-shalawat-nurul-huda",
+      label: "Shalawat Nūrul Hudā (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى نُوْرِ الْهُدَى وَسِرَاجِ الدُّجَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَصَحْبِهِ وَسَلِّمْ",
+      latin: "Allahumma shalli 'alaa nuuril-hudaa wa siraajid-dujaa sayyidinaa Muhammadin wa 'alaa aalihii wa shahbihii wa sallim",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas cahaya petunjuk dan pelita kegelapan, junjungan kami Muhammad, serta atas keluarga dan para sahabatnya, dan limpahkanlah salam.",
+      ulang: 1,
+    },
+    // 18. Shalawat Syamsudduha
+    {
+      id: "th-shalawat-syamsuddhuha",
+      label: "Shalawat Syamsuḍ-Ḍuḥā (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى شَمْسِ الضُّحَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَصَحْبِهِ وَسَلِّمْ",
+      latin: "Allahumma shalli 'alaa syamsidh-dhuhaa sayyidinaa Muhammadin wa 'alaa aalihii wa shahbihii wa sallim",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas matahari waktu dhuha, junjungan kami Muhammad, serta atas keluarga dan para sahabatnya, dan limpahkanlah salam.",
+      ulang: 1,
+    },
+    // 19. Shalawat Badrudduja
+    {
+      id: "th-shalawat-badrudduja",
+      label: "Shalawat Badrud-Dujā (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى بَدْرِ الدُّجَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَصَحْبِهِ وَسَلِّمْ",
+      latin: "Allahumma shalli 'alaa badrid-dujaa sayyidinaa Muhammadin wa 'alaa aalihii wa shahbihii wa sallim",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas bulan purnama kegelapan, junjungan kami Muhammad, serta atas keluarga dan para sahabatnya, dan limpahkanlah salam.",
+      ulang: 1,
+    },
+    // 20. Hasbunallah wa ni'mal wakil
+    {
+      id: "th-hasbunallah",
+      label: "Hasbunallāhu wa ni'mal wakīl (1x)",
+      arab: "حَسْبُنَا اللهُ وَنِعْمَ الْوَكِيلُ نِعْمَ الْمَوْلَى وَنِعْمَ النَّصِيرُ",
+      latin: "Hasbunallaahu wa ni'mal-wakiil, ni'mal-mawlaa wa ni'man-nashiir",
+      terjemahan: "Cukuplah Allah (menjadi penolong) bagi kami dan Dia adalah sebaik-baik Wakil. Sebaik-baik Pelindung dan sebaik-baik Penolong.",
+      ulang: 1,
+    },
+    // 21. Wa la hawla wa la quwwata
+    {
+      id: "th-hauqalah",
+      label: "Wa lā ḥaula wa lā quwwata illā billāhil 'aliyyil 'aẓīm (1x)",
+      arab: "وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللهِ الْعَلِيِّ الْعَظِيمِ",
+      latin: "Wa laa hawla wa laa quwwata illaa billaahil-'aliyyil-'azhiim",
+      terjemahan: "Dan tiada daya dan tiada kekuatan kecuali dengan pertolongan Allah Yang Maha Tinggi lagi Maha Agung.",
+      ulang: 1,
+    },
+    // 22. Istighfar
     {
       id: "th-istighfar",
-      label: "Istighfar (3x)",
+      label: "Istighfar — Astaghfirullāhal 'Aẓīm (3x)",
       arab: "أَسْتَغْفِرُ اللهَ الْعَظِيمَ الَّذِي لَا إِلَهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ وَأَتُوبُ إِلَيْهِ",
       latin: "Astaghfirullaahal-'azhiimalladzii laa ilaaha illaa huwal-hayyul-qayyuumu wa atuubu ilaih",
       terjemahan: "Aku memohon ampun kepada Allah Yang Maha Agung, yang tiada tuhan selain Dia, Yang Maha Hidup, Yang terus-menerus mengurus makhluk-Nya, dan aku bertobat kepada-Nya.",
       ulang: 3,
     },
+    // 23. Dzikir: Afdhaludz-dzikri
     {
-      id: "th-tahlil-100",
-      label: "Tahlil (100x)",
+      id: "th-dzikir-afdhalu",
+      label: "Dzikir Afdhal (1x)",
+      arab: "أَفْضَلُ الذِّكْرِ فَاعْلَمْ أَنَّهُ لَا إِلَهَ إِلَّا اللهُ",
+      latin: "Afdhaludz-dzikri fa'lam annahu laa ilaaha illallaah",
+      terjemahan: "Dzikir yang paling utama, maka ketahuilah bahwa tiada tuhan selain Allah.",
+      ulang: 1,
+    },
+    // 24. La ilaha illallahu hayyun maujud
+    {
+      id: "th-tahlil-hayyun-maujud",
+      label: "Lā ilāha illallāhu ḥayyun maujūd (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ حَيٌّ مَوْجُودٌ",
+      latin: "Laa ilaaha illallaahu hayyun maujuud",
+      terjemahan: "Tiada tuhan selain Allah, Yang Maha Hidup lagi Ada.",
+      ulang: 1,
+      besar: true,
+    },
+    // 25. La ilaha illallahu hayyun ma'bud
+    {
+      id: "th-tahlil-hayyun-mabud",
+      label: "Lā ilāha illallāhu ḥayyun ma'būd (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ حَيٌّ مَعْبُودٌ",
+      latin: "Laa ilaaha illallaahu hayyun ma'buud",
+      terjemahan: "Tiada tuhan selain Allah, Yang Maha Hidup lagi disembah.",
+      ulang: 1,
+      besar: true,
+    },
+    // 26. La ilaha illallahu hayyun baq
+    {
+      id: "th-tahlil-hayyun-baq",
+      label: "Lā ilāha illallāhu ḥayyun bāq (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ حَيٌّ بَاقٍ",
+      latin: "Laa ilaaha illallaahu hayyun baaq",
+      terjemahan: "Tiada tuhan selain Allah, Yang Maha Hidup lagi Kekal.",
+      ulang: 1,
+      besar: true,
+    },
+    // 27. La ilaha illallah
+    {
+      id: "th-tahlil-murni",
+      label: "Lā ilāha illallāh (1x)",
       arab: "لَا إِلَهَ إِلَّا اللهُ",
       latin: "Laa ilaaha illallaah",
       terjemahan: "Tiada tuhan selain Allah.",
-      ulang: 100,
+      ulang: 1,
       besar: true,
     },
+    // 28. La ilaha illallah, la ilaha illallah (2x)
+    {
+      id: "th-tahlil-2x",
+      label: "Lā ilāha illallāh (2x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ لَا إِلَهَ إِلَّا اللهُ",
+      latin: "Laa ilaaha illallaah, laa ilaaha illallaah",
+      terjemahan: "Tiada tuhan selain Allah, tiada tuhan selain Allah.",
+      ulang: 1,
+      besar: true,
+    },
+    // 29. La ilaha illallah Muhammadun Nabiyyullah
+    {
+      id: "th-tahlil-nabiyyullah",
+      label: "Lā ilāha illallāh Muḥammadun Nabiyyullāh (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ مُحَمَّدٌ نَبِيُّ اللهِ",
+      latin: "Laa ilaaha illallaahu Muhammadun nabiyyullaah",
+      terjemahan: "Tiada tuhan selain Allah, Muhammad adalah Nabi Allah.",
+      ulang: 1,
+      besar: true,
+    },
+    // 30. La ilaha illallah Muhammadur Rasulullah
+    {
+      id: "th-tahlil-rasulullah",
+      label: "Lā ilāha illallāh Muḥammadur Rasūlullāh (1x)",
+      arab: "لَا إِلَهَ إِلَّا اللهُ مُحَمَّدٌ رَسُولُ اللهِ",
+      latin: "Laa ilaaha illallaahu Muhammadur rasuulullaah",
+      terjemahan: "Tiada tuhan selain Allah, Muhammad adalah Rasul Allah.",
+      ulang: 1,
+      besar: true,
+    },
+    // 31. Shalawat kepada Nabi (pertama)
+    {
+      id: "th-shalawat-nabi-1",
+      label: "Shalawat kepada Nabi ﷺ (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِ سَيِّدِنَا مُحَمَّدٍ",
+      latin: "Allahumma shalli 'alaa sayyidinaa Muhammadin wa 'alaa aali sayyidinaa Muhammad",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas junjungan kami Muhammad dan atas keluarga junjungan kami Muhammad.",
+      ulang: 1,
+    },
+    // 32. Shalawat kepada Nabi (kedua)
+    {
+      id: "th-shalawat-nabi-2",
+      label: "Shalawat kepada Nabi ﷺ (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِ سَيِّدِنَا مُحَمَّدٍ",
+      latin: "Allahumma shalli 'alaa sayyidinaa Muhammadin wa 'alaa aali sayyidinaa Muhammad",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas junjungan kami Muhammad dan atas keluarga junjungan kami Muhammad.",
+      ulang: 1,
+    },
+    // 33. Tasbih: Subhanallahi wa bihamdihi
     {
       id: "th-tasbih",
-      label: "Tasbih (33x)",
-      arab: "سُبْحَانَ اللهِ",
-      latin: "Subhaanallaah",
-      terjemahan: "Maha Suci Allah.",
-      ulang: 33,
-    },
-    {
-      id: "th-tahmid",
-      label: "Tahmid (33x)",
-      arab: "اَلْحَمْدُ لِلَّهِ",
-      latin: "Alhamdulillaah",
-      terjemahan: "Segala puji bagi Allah.",
-      ulang: 33,
-    },
-    {
-      id: "th-takbir",
-      label: "Takbir (34x)",
-      arab: "اَللهُ أَكْبَرُ",
-      latin: "Allaahu akbar",
-      terjemahan: "Allah Maha Besar.",
-      ulang: 34,
-    },
-    {
-      id: "th-shalawat",
-      label: "Shalawat Ibrahimiyah",
-      arab: "اَللَّهُمَّ صَلِّ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِ سَيِّدِنَا مُحَمَّدٍ كَمَا صَلَّيْتَ عَلَى سَيِّدِنَا إِبْرَاهِيمَ وَعَلَى آلِ سَيِّدِنَا إِبْرَاهِيمَ وَبَارِكْ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِ سَيِّدِنَا مُحَمَّدٍ كَمَا بَارَكْتَ عَلَى سَيِّدِنَا إِبْرَاهِيمَ وَعَلَى آلِ سَيِّدِنَا إِبْرَاهِيمَ فِي الْعَالَمِيْنَ إِنَّكَ حَمِيدٌ مَجِيدٌ",
-      latin: "Allahumma shalli 'alaa sayyidinaa Muhammadin wa 'alaa aali sayyidinaa Muhammadin kamaa shallaita 'alaa sayyidinaa Ibraahiima wa 'alaa aali sayyidinaa Ibraahiim, wa baarik 'alaa sayyidinaa Muhammadin wa 'alaa aali sayyidinaa Muhammadin kamaa baarakta 'alaa sayyidinaa Ibraahiima wa 'alaa aali sayyidinaa Ibraahiima fil-'aalamiina innaka hamiidun majiid",
-      terjemahan: "Ya Allah, berikanlah rahmat kepada junjungan kami Muhammad dan kepada keluarga junjungan kami Muhammad, sebagaimana Engkau telah memberikan rahmat kepada junjungan kami Ibrahim dan keluarganya. Berkatilah junjungan kami Muhammad dan keluarga junjungan kami Muhammad, sebagaimana Engkau telah memberkati junjungan kami Ibrahim dan keluarganya di seluruh alam. Sesungguhnya Engkau Maha Terpuji lagi Maha Mulia.",
+      label: "Tasbih (1x)",
+      arab: "سُبْحَانَ اللهِ وَبِحَمْدِهِ سُبْحَانَ اللهِ الْعَظِيمِ",
+      latin: "Subhaanallaahi wa bihamdihii, subhaanallaahil-'azhiim",
+      terjemahan: "Maha Suci Allah dan dengan memuji-Nya; Maha Suci Allah Yang Maha Agung.",
       ulang: 1,
     },
+    // 34. Shalawat: Allahumma shalli 'ala habibika
     {
-      id: "th-hauqalah",
-      label: "Hauqalah (10x)",
-      arab: "لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللهِ الْعَلِيِّ الْعَظِيمِ",
-      latin: "Laa hawla wa laa quwwata illaa billaahil-'aliyyil-'azhiim",
-      terjemahan: "Tiada daya dan tiada kekuatan kecuali dengan pertolongan Allah Yang Maha Tinggi lagi Maha Agung.",
-      ulang: 10,
-    },
-    {
-      id: "th-tahlil-penutup",
-      label: "Tahlil Penutup",
-      arab: "لَا إِلَهَ إِلَّا اللهُ مُحَمَّدٌ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ",
-      latin: "Laa ilaaha illallaahu Muhammadur-rasuulullaahi shallallaahu 'alaihi wa sallam",
-      terjemahan: "Tiada tuhan selain Allah, Muhammad adalah utusan Allah SAW.",
-      ulang: 1,
-      besar: true,
-    },
-    {
-      id: "th-doa-tahlil",
-      label: "Doa Tahlil",
-      arab: "اَللَّهُمَّ إِنَّا نَسْأَلُكَ سَلَامَةً فِي الدِّيْنِ وَعَافِيَةً فِي الْجَسَدِ وَزِيَادَةً فِي الْعِلْمِ وَبَرَكَةً فِي الرِّزْقِ وَتَوْبَةً قَبْلَ الْمَوْتِ وَرَحْمَةً عِنْدَ الْمَوْتِ وَمَغْفِرَةً بَعْدَ الْمَوْتِ",
-      latin: "Allahumma innaa nas-aluka salaamatan fid-diini wa 'aafiyatan fil-jasadi wa ziyaadatan fil-'ilmi wa barakatan fir-rizqi wa tawbatan qablal-mawti wa rahmatan 'indal-mawti wa maghfiratan ba'dal-mawt",
-      terjemahan: "Ya Allah, sesungguhnya kami memohon kepada-Mu keselamatan dalam agama, kesehatan pada badan, tambahan ilmu, keberkahan rezeki, taubat sebelum mati, rahmat saat menghadapi kematian, dan ampunan setelah mati.",
+      id: "th-shalawat-shalli-1",
+      label: "Shalawat (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى حَبِيبِكَ سَيِّدِنَا مُحَمَّدٍ",
+      latin: "Allahumma shalli 'alaa habiibika sayyidinaa Muhammad",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas kekasih-Mu junjungan kami Muhammad.",
       ulang: 1,
     },
+    // 35. Shalawat: ...wa barik wa sallim
+    {
+      id: "th-shalawat-shalli-2",
+      label: "Shalawat wa bārik wa sallim (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى حَبِيبِكَ سَيِّدِنَا مُحَمَّدٍ وَبَارِكْ وَسَلِّمْ",
+      latin: "Allahumma shalli 'alaa habiibika sayyidinaa Muhammad wa baarik wa sallim",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas kekasih-Mu junjungan kami Muhammad, berkahilah dan limpahkanlah salam.",
+      ulang: 1,
+    },
+    // 36. Shalawat lengkap: ...wa 'ala alihi wa ashabihi wa azwajihi wa dzurriyyatihi wa ahla baitihi
+    {
+      id: "th-shalawat-shalli-3",
+      label: "Shalawat Lengkap (1x)",
+      arab: "اَللَّهُمَّ صَلِّ عَلَى حَبِيبِكَ سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَأَصْحَابِهِ وَأَزْوَاجِهِ وَذُرِّيَّتِهِ وَأَهْلِ بَيْتِهِ أَجْمَعِيْنَ وَبَارِكْ وَسَلِّمْ",
+      latin: "Allahumma shalli 'alaa habiibika sayyidinaa Muhammadin wa 'alaa aalihii wa ash-haabihii wa azwaajihii wa dzurriyyatihii wa ahli baitihii ajma'iin wa baarik wa sallim",
+      terjemahan: "Ya Allah, limpahkanlah shalawat atas kekasih-Mu junjungan kami Muhammad, dan atas keluarganya, para sahabatnya, istri-istrinya, keturunannya, dan seluruh Ahlul Bait-nya. Berkahilah dan limpahkanlah salam.",
+      ulang: 1,
+    },
+    // 37. Shalawat Nariyah (11x)
+    {
+      id: "th-shalawat-nariyah",
+      label: "Shalawat Nariyah (11x)",
+      arab: "اَللَّهُمَّ صَلِّ صَلَاةً كَامِلَةً وَسَلِّمْ سَلَامًا تَامًّا عَلَى سَيِّدِنَا مُحَمَّدٍ الَّذِي تَنْحَلُّ بِهِ الْعُقَدُ وَتَنْفَرِجُ بِهِ الْكُرَبُ وَتُقْضَى بِهِ الْحَوَائِجُ وَتُنَالُ بِهِ الرَّغَائِبُ وَحُسْنُ الْخَوَاتِمِ وَيُسْتَسْقَى الْغَمَامُ بِوَجْهِهِ الْكَرِيمِ وَعَلَى آلِهِ وَصَحْبِهِ فِي كُلِّ لَمْحَةٍ وَنَفَسٍ بِعَدَدِ كُلِّ مَعْلُومٍ لَكَ",
+      latin: "Allahumma shalli shalaatan kaamilatan wa sallim salaaman taamman 'alaa sayyidinaa Muhammadil-ladzii tanhallu bihil-'uqad, wa tanfariju bihil-kurab, wa tuqdlaa bihil-hawaa-ij, wa tunaalu bihir-raghaa-ib, wa husnul-khawaatim, wa yustasqal-ghamaamu biwajhihil-kariim, wa 'alaa aalihii wa shahbihii fii kulli lamhatin wa nafasin bi'adadi kulli ma'luumin lak",
+      terjemahan: "Ya Allah, limpahkanlah shalawat yang sempurna dan salam yang lengkap atas junjungan kami Muhammad, yang dengan berkahnya segala ikatan terurai, segala kesusahan lenyap, segala kebutuhan terpenuhi, segala keinginan dan husnul khatimah diraih, dan hujan diturunkan melalui wajahnya yang mulia; serta atas keluarga dan sahabatnya di setiap kedipan mata dan tarikan nafas sebanyak bilangan semua yang Engkau ketahui.",
+      ulang: 11,
+    },
+    // 38. Al-Fatihah (penutup)
+    {
+      id: "th-fatihah-penutup",
+      label: "Al-Fātiḥah — Penutup (1x)",
+      arab: QURAN.alFatihah.arab,
+      latin: QURAN.alFatihah.latin,
+      terjemahan: QURAN.alFatihah.terjemahan,
+      ulang: 1,
+    },
+    // Doa untuk Arwah (selalu di akhir)
     {
       id: "th-doa-arwah",
       label: "Doa untuk Arwah",
       arab: doaArwahArab,
       latin: doaArwahLatin,
       terjemahan: doaArwahTerjemahan,
-      ulang: 1,
-    },
-    {
-      id: "th-penutup",
-      label: "Doa Penutup",
-      arab: "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ ۝ سُبْحَانَ رَبِّكَ رَبِّ الْعِزَّةِ عَمَّا يَصِفُوْنَ وَسَلَامٌ عَلَى الْمُرْسَلِيْنَ وَالْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِيْنَ",
-      latin: "Rabbanaa aatinaa fid-dunyaa hasanatan wa fil-aakhirati hasanatan wa qinaa 'adzaaban-naar. Subhaana rabbika rabbil-'izzati 'ammaa yashifuun, wa salaamun 'alal-mursaliin, wal-hamdu lillaahi rabbil-'aalamiin.",
-      terjemahan: "Ya Tuhan kami, berilah kami kebaikan di dunia dan kebaikan di akhirat, dan lindungilah kami dari siksa neraka. Maha Suci Tuhanmu dari apa yang mereka sifatkan. Salam atas para rasul. Segala puji bagi Allah, Tuhan semesta alam.",
       ulang: 1,
     },
   ]
@@ -645,11 +855,24 @@ export const runTahlilTests = () => {
   })
   test("TAHLIL: urutan ID sesuai runtunan", () => {
     const expectedOrder = [
-      "th-tawassul-note", "th-fatihah", "th-ikhlas", "th-falaq", "th-nas",
+      "th-fatihah-pembuka", "th-ikhlas", "th-tahlil-1",
+      "th-falaq", "th-tahlil-2", "th-nas", "th-tahlil-3",
+      "th-fatihah", "th-tahlil-4",
       "th-baqarah-awal", "th-ayat-kursi", "th-baqarah-akhir",
-      "th-istighfar", "th-tahlil-100", "th-tasbih", "th-tahmid",
-      "th-takbir", "th-shalawat", "th-hauqalah", "th-tahlil-penutup",
-      "th-doa-tahlil", "th-doa-arwah", "th-penutup",
+      "th-doa-rahmat", "th-doa-sharf",
+      "th-salam-ahlulbait", "th-ayat-shalawat",
+      "th-shalawat-nurul-huda", "th-shalawat-syamsuddhuha", "th-shalawat-badrudduja",
+      "th-hasbunallah", "th-hauqalah", "th-istighfar",
+      "th-dzikir-afdhalu",
+      "th-tahlil-hayyun-maujud", "th-tahlil-hayyun-mabud", "th-tahlil-hayyun-baq",
+      "th-tahlil-murni", "th-tahlil-2x",
+      "th-tahlil-nabiyyullah", "th-tahlil-rasulullah",
+      "th-shalawat-nabi-1", "th-shalawat-nabi-2",
+      "th-tasbih",
+      "th-shalawat-shalli-1", "th-shalawat-shalli-2", "th-shalawat-shalli-3",
+      "th-shalawat-nariyah",
+      "th-fatihah-penutup",
+      "th-doa-arwah",
     ]
     tahlil.forEach((item, i) => {
       assert(item.id === expectedOrder[i],
