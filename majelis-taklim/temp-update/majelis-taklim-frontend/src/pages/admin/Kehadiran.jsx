@@ -19,11 +19,14 @@ import { formatDate, formatCurrency, currentMonth } from '../../utils/helpers'
 
 const STATUS_KEHADIRAN = [
   { value: 'hadir', label: 'Hadir', color: 'emerald' },
-  { value: 'tidak', label: 'Tidak', color: 'red' }
+  { value: 'tidak_hadir', label: 'Tidak', color: 'red' },
+  { value: 'izin', label: 'Izin', color: 'amber' }
 ]
 
 function badgeColor(status) {
-  return status === 'hadir' ? 'emerald' : 'red'
+  if (status === 'hadir') return 'emerald'
+  if (status === 'izin') return 'amber'
+  return 'red'
 }
 
 // ── Tab: Catat Kehadiran Pertemuan (Langkah 1 & 2) ───────────────────────────
@@ -69,11 +72,7 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
       if (list.length > 0) {
         const existing = {}
         list.forEach(i => {
-          existing[i.jamaah_id] = {
-            jumlah: i.jumlah || '',
-            jenis_iuran_id: i.jenis_iuran_id || '',
-            status: i.status || 'lunas'
-          }
+          existing[i.jamaah_id] = { jumlah: i.nominal || '' }
         })
         setIuranData(existing)
         setIuranSaved(true)
@@ -100,7 +99,7 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
   // jamaah yang hadir → akan dibuatkan iuran
   const jamaahHadir = jamaahList.filter(j => checklistStatus[j.id] === 'hadir')
 
-  // Simpan kehadiran semua jamaah sekaligus
+  // Simpan kehadiran semua jamaah sekaligus (pakai endpoint batch)
   async function handleSimpanKehadiran() {
     if (!selectedJadwal) return
     if (Object.keys(checklistStatus).length === 0) {
@@ -110,27 +109,14 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
     setSavingKehadiran(true)
     setKehadiranError('')
     try {
-      // Kirim kehadiran untuk setiap jamaah secara paralel
-      const promises = jamaahList.map(j => {
-        const status = checklistStatus[j.id] || 'tidak'
-        // Jika sudah ada data kehadiran sebelumnya, update; jika belum, create
-        const existing = existingKehadiran.find(k => k.jamaah_id === j.id)
-        if (existing) {
-          return kehadiranApi.update(existing.id, {
-            jamaah_id: j.id,
-            jadwal_id: selectedJadwal,
-            status,
-            keterangan: ''
-          })
-        }
-        return kehadiranApi.create({
-          jamaah_id: j.id,
-          jadwal_id: selectedJadwal,
-          status,
-          keterangan: ''
-        })
-      })
-      await Promise.all(promises)
+      const absensi = jamaahList.map(j => ({
+        jamaah_id: j.id,
+        status: checklistStatus[j.id] || 'tidak_hadir',
+        catatan: ''
+      }))
+
+      // Kirim sekaligus lewat endpoint batch — backend menangani insert/update otomatis
+      await kehadiranApi.create({ jadwal_id: selectedJadwal, absensi })
 
       // Tandai jadwal sebagai selesai setelah kehadiran disimpan
       await jadwalApi.update(selectedJadwal, { status: 'selesai' })
@@ -143,18 +129,19 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
 
       setKehadiranSaved(true)
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Gagal menyimpan kehadiran.'
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Gagal menyimpan kehadiran.'
       setKehadiranError(msg)
     } finally {
       setSavingKehadiran(false)
     }
   }
 
-  // Simpan iuran untuk jamaah yang hadir
+  // Simpan iuran untuk jamaah yang hadir — otomatis bertipe "Iuran Rutinan"
   async function handleSimpanIuran() {
     if (!selectedJadwal) return
     const jadwal = jadwalList.find(j => String(j.id) === String(selectedJadwal))
     const periode = jadwal?.tanggal ? jadwal.tanggal.slice(0, 7) : currentMonth()
+    const tanggalBayar = jadwal?.tanggal || new Date().toISOString().slice(0, 10)
 
     const jamaahDenganIuran = jamaahHadir.filter(j => {
       const d = iuranData[j.id]
@@ -174,15 +161,16 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
 
       const promises = jamaahDenganIuran.map(j => {
         const d = iuranData[j.id]
+        // Tidak perlu kirim jenis_iuran_id — backend otomatis memaksa
+        // "Iuran Rutinan" untuk semua iuran yang menyertakan jadwal_id.
         const payload = {
           jamaah_id: j.id,
           jadwal_id: selectedJadwal,
-          jumlah: Number(d.jumlah),
+          nominal: Number(d.jumlah),
+          tanggal_bayar: tanggalBayar,
           periode,
-          status: d.status || 'lunas',
           keterangan: 'Iuran dari kehadiran pertemuan'
         }
-        if (d.jenis_iuran_id) payload.jenis_iuran_id = d.jenis_iuran_id
 
         const existing = existingIuran.find(i => i.jamaah_id === j.id)
         if (existing) return iuranApi.update(existing.id, payload)
@@ -199,7 +187,7 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
 
       setIuranSaved(true)
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Gagal menyimpan iuran.'
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Gagal menyimpan iuran.'
       setIuranError(msg)
     } finally {
       setSavingIuran(false)
@@ -357,23 +345,31 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
             </p>
           )}
 
+          {/* Info: jenis iuran otomatis */}
+          {jamaahHadir.length > 0 && (
+            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl px-3 py-2 mb-3">
+              <Badge color="emerald">Iuran Rutinan</Badge>
+              <p className="text-xs text-gray-400">
+                Jenis iuran dari kehadiran selalu otomatis "Iuran Rutinan" dan tidak dapat diubah.
+              </p>
+            </div>
+          )}
+
           {/* Form iuran per jamaah */}
           {jamaahHadir.length > 0 && (
             <div className="space-y-3">
               {/* Header */}
               <div className="grid grid-cols-12 gap-2 px-1">
-                <span className="col-span-4 text-xs font-semibold text-gray-500 uppercase">Jamaah</span>
-                <span className="col-span-3 text-xs font-semibold text-gray-500 uppercase">Jumlah (Rp)</span>
-                <span className="col-span-3 text-xs font-semibold text-gray-500 uppercase">Jenis</span>
-                <span className="col-span-2 text-xs font-semibold text-gray-500 uppercase">Status</span>
+                <span className="col-span-7 text-xs font-semibold text-gray-500 uppercase">Jamaah</span>
+                <span className="col-span-5 text-xs font-semibold text-gray-500 uppercase">Jumlah (Rp)</span>
               </div>
 
               {jamaahHadir.map(j => {
-                const d = iuranData[j.id] || { jumlah: '', jenis_iuran_id: '', status: 'lunas' }
+                const d = iuranData[j.id] || { jumlah: '' }
                 return (
                   <div key={j.id} className="grid grid-cols-12 gap-2 items-center border-b border-gray-50 dark:border-gray-800 pb-3 last:border-0 last:pb-0">
-                    <span className="col-span-4 text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{j.nama}</span>
-                    <div className="col-span-3">
+                    <span className="col-span-7 text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{j.nama}</span>
+                    <div className="col-span-5">
                       <input
                         type="number"
                         min="0"
@@ -386,36 +382,6 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
                         }))}
                         className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
                       />
-                    </div>
-                    <div className="col-span-3">
-                      <select
-                        disabled={isIuranDicatat}
-                        value={d.jenis_iuran_id}
-                        onChange={e => setIuranData(prev => ({
-                          ...prev,
-                          [j.id]: { ...d, jenis_iuran_id: e.target.value }
-                        }))}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
-                      >
-                        <option value="">—</option>
-                        {jenisIuranList.map(ji => (
-                          <option key={ji.id} value={ji.id}>{ji.nama}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <select
-                        disabled={isIuranDicatat}
-                        value={d.status}
-                        onChange={e => setIuranData(prev => ({
-                          ...prev,
-                          [j.id]: { ...d, status: e.target.value }
-                        }))}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-1 py-1.5 text-xs text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
-                      >
-                        <option value="lunas">Lunas</option>
-                        <option value="belum">Belum</option>
-                      </select>
                     </div>
                   </div>
                 )

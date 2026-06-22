@@ -1,18 +1,31 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { iuranApi, jamaahApi, jenisIuranApi, jadwalApi } from '../../api/services'
+import { iuranApi, jamaahApi, jenisIuranApi } from '../../api/services'
 import { Button, Input, Select, Modal, Table, Pagination, ConfirmDialog, Badge } from '../../components/ui'
 import { Plus, Edit, Trash2 } from 'lucide-react'
 import { formatCurrency, formatDate, currentMonth } from '../../utils/helpers'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Halaman ini KHUSUS untuk pencatatan iuran MANUAL (di luar kehadiran).
+// Iuran dari kehadiran pertemuan dicatat lewat menu Kehadiran dan otomatis
+// bertipe "Iuran Rutinan" — tidak bisa dan tidak perlu diinput di sini.
+// Jenis iuran di form ini wajib dipilih dari jenis selain "Iuran Rutinan"
+// (mis. "Iuran Lain-lain").
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ID_IURAN_RUTINAN = 1 // harus sinkron dengan JENIS_IURAN_RUTINAN_ID di backend
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 const EMPTY_FORM = {
   jamaah_id: '',
   jenis_iuran_id: '',
-  jadwal_id: '',
-  jumlah: '',
+  nominal: '',
+  tanggal_bayar: todayStr(),
   periode: currentMonth(),
-  keterangan: '',
-  status: 'lunas'
+  keterangan: ''
 }
 
 export default function AdminIuran() {
@@ -41,17 +54,12 @@ export default function AdminIuran() {
     queryFn: () => jenisIuranApi.getAll().then(r => r.data)
   })
 
-  // Ambil daftar jadwal untuk dropdown — pilih jadwal terkait iuran (opsional)
-  const { data: jadwalData } = useQuery({
-    queryKey: ['jadwal-all'],
-    queryFn: () => jadwalApi.getAll({ limit: 100 }).then(r => r.data)
-  })
-
   const iurans = data?.data || data || []
   const totalPages = data?.totalPages || 1
   const jamaahList = jamaahData?.data || jamaahData || []
-  const jenisList = jenisData?.data || jenisData || []
-  const jadwalList = jadwalData?.data || jadwalData || []
+  // Untuk input manual, "Iuran Rutinan" tidak boleh dipilih — jenis itu khusus
+  // dari alur kehadiran dan dipaksa otomatis oleh backend.
+  const jenisList = (jenisData?.data || jenisData || []).filter(j => j.id !== ID_IURAN_RUTINAN)
 
   const deleteMut = useMutation({
     mutationFn: (id) => iuranApi.delete(id),
@@ -69,11 +77,10 @@ export default function AdminIuran() {
     setForm({
       jamaah_id: row.jamaah_id || '',
       jenis_iuran_id: row.jenis_iuran_id || '',
-      jadwal_id: row.jadwal_id || '',
-      jumlah: row.jumlah || '',
+      nominal: row.nominal || '',
+      tanggal_bayar: row.tanggal_bayar || todayStr(),
       periode: row.periode || currentMonth(),
-      keterangan: row.keterangan || '',
-      status: row.status || 'lunas'
+      keterangan: row.keterangan || ''
     })
     setEditId(row.id)
     setFormError('')
@@ -81,28 +88,34 @@ export default function AdminIuran() {
   }
 
   async function handleSave() {
-    // Validasi wajib: jamaah dan jumlah harus diisi
+    // Validasi wajib: jamaah, jenis, dan nominal harus diisi
     if (!form.jamaah_id) {
       setFormError('Jamaah wajib dipilih.')
       return
     }
-    if (!form.jumlah || Number(form.jumlah) <= 0) {
-      setFormError('Jumlah iuran wajib diisi dan lebih dari 0.')
+    if (!form.jenis_iuran_id) {
+      setFormError('Jenis iuran wajib dipilih.')
+      return
+    }
+    if (!form.nominal || Number(form.nominal) <= 0) {
+      setFormError('Nominal iuran wajib diisi dan lebih dari 0.')
+      return
+    }
+    if (!form.tanggal_bayar) {
+      setFormError('Tanggal bayar wajib diisi.')
       return
     }
     setFormError('')
     setSaving(true)
 
-    // Siapkan payload — hapus field kosong agar tidak mengirim string kosong ke backend
     const payload = {
       jamaah_id: form.jamaah_id,
-      jumlah: Number(form.jumlah),
+      jenis_iuran_id: form.jenis_iuran_id,
+      nominal: Number(form.nominal),
+      tanggal_bayar: form.tanggal_bayar,
       periode: form.periode,
-      status: form.status,
       keterangan: form.keterangan || ''
     }
-    if (form.jenis_iuran_id) payload.jenis_iuran_id = form.jenis_iuran_id
-    if (form.jadwal_id) payload.jadwal_id = form.jadwal_id
 
     try {
       if (editId) await iuranApi.update(editId, payload)
@@ -110,7 +123,7 @@ export default function AdminIuran() {
       qc.invalidateQueries(['admin-iuran'])
       setModal(false)
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Gagal menyimpan iuran.'
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Gagal menyimpan iuran.'
       setFormError(msg)
     } finally {
       setSaving(false)
@@ -129,7 +142,7 @@ export default function AdminIuran() {
       render: (val) => <span className="text-xs text-gray-600 dark:text-gray-400">{val || '-'}</span>
     },
     {
-      key: 'jumlah',
+      key: 'nominal',
       title: 'Jumlah',
       render: (val) => <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(val)}</span>
     },
@@ -139,9 +152,9 @@ export default function AdminIuran() {
       render: (val) => <span className="text-xs text-gray-500">{val || '-'}</span>
     },
     {
-      key: 'status',
-      title: 'Status',
-      render: (val) => <Badge color={val === 'lunas' ? 'emerald' : 'amber'}>{val === 'lunas' ? 'Lunas' : 'Belum'}</Badge>
+      key: 'tanggal_bayar',
+      title: 'Tgl Bayar',
+      render: (val) => <span className="text-xs text-gray-500">{val ? formatDate(val) : '-'}</span>
     },
     {
       key: 'id',
@@ -216,35 +229,31 @@ export default function AdminIuran() {
           </Select>
 
           <Select
-            label="Jenis Iuran"
+            label="Jenis Iuran*"
             value={form.jenis_iuran_id}
             onChange={e => setForm(f => ({ ...f, jenis_iuran_id: e.target.value }))}
           >
-            <option value="">Pilih jenis iuran (opsional)</option>
+            <option value="">Pilih jenis iuran</option>
             {jenisList.map(j => <option key={j.id} value={j.id}>{j.nama}</option>)}
           </Select>
-
-          {/* Jadwal terkait — opsional, untuk iuran yang dikaitkan dengan pertemuan tertentu */}
-          <Select
-            label="Pertemuan / Jadwal (opsional)"
-            value={form.jadwal_id}
-            onChange={e => setForm(f => ({ ...f, jadwal_id: e.target.value }))}
-          >
-            <option value="">Tidak terkait jadwal tertentu</option>
-            {jadwalList.map(j => (
-              <option key={j.id} value={j.id}>
-                {formatDate(j.tanggal)}{j.lokasi ? ` — ${j.lokasi}` : ''}
-              </option>
-            ))}
-          </Select>
+          <p className="text-xs text-gray-400 -mt-2">
+            "Iuran Rutinan" hanya dicatat otomatis lewat menu Kehadiran, bukan di sini.
+          </p>
 
           <Input
-            label="Jumlah (Rp)*"
+            label="Nominal (Rp)*"
             type="number"
             placeholder="0"
             min="0"
-            value={form.jumlah}
-            onChange={e => setForm(f => ({ ...f, jumlah: e.target.value }))}
+            value={form.nominal}
+            onChange={e => setForm(f => ({ ...f, nominal: e.target.value }))}
+          />
+
+          <Input
+            label="Tanggal Bayar*"
+            type="date"
+            value={form.tanggal_bayar}
+            onChange={e => setForm(f => ({ ...f, tanggal_bayar: e.target.value }))}
           />
 
           <Input
@@ -253,15 +262,6 @@ export default function AdminIuran() {
             value={form.periode}
             onChange={e => setForm(f => ({ ...f, periode: e.target.value }))}
           />
-
-          <Select
-            label="Status"
-            value={form.status}
-            onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-          >
-            <option value="lunas">Lunas</option>
-            <option value="belum">Belum Lunas</option>
-          </Select>
 
           <Input
             label="Keterangan"

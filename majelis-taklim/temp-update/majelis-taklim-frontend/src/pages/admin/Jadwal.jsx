@@ -5,7 +5,7 @@ import { Button, Input, Textarea, Modal, Table, Pagination, ConfirmDialog, Badge
 import { Plus, Edit, Trash2, Lightbulb, CheckCircle } from 'lucide-react'
 import { formatDate, formatTime } from '../../utils/helpers'
 
-const EMPTY_FORM = { tanggal: '', waktu: '19:30', lokasi: '', keterangan: '' }
+const EMPTY_FORM = { judul: '', tanggal: '', waktu_mulai: '19:30', lokasi: '', deskripsi: '' }
 
 // Hitung usulan +14 hari dari jadwal terakhir
 function getUsulTanggal(jadwals) {
@@ -58,7 +58,7 @@ export default function AdminJadwal() {
 
   function openAdd() {
     const usul = getUsulTanggal(jadwals)
-    setForm({ ...EMPTY_FORM, tanggal: usul })
+    setForm({ ...EMPTY_FORM, tanggal: usul, judul: "Pertemuan Majelis Ta'lim" })
     setEditId(null)
     setShowTip(true)
     setModal(true)
@@ -66,10 +66,11 @@ export default function AdminJadwal() {
 
   function openEdit(j) {
     setForm({
+      judul: j.judul || '',
       tanggal: j.tanggal || '',
-      waktu: j.waktu || '19:30',
+      waktu_mulai: j.waktu_mulai || '19:30',
       lokasi: j.lokasi || '',
-      keterangan: j.keterangan || ''
+      deskripsi: j.deskripsi || ''
     })
     setEditId(j.id)
     setShowTip(false)
@@ -78,6 +79,7 @@ export default function AdminJadwal() {
 
   async function handleSave() {
     if (!form.tanggal) return
+    if (!form.judul) return
     setSaving(true)
     try {
       if (editId) await jadwalApi.update(editId, form)
@@ -90,17 +92,17 @@ export default function AdminJadwal() {
 
   const columns = [
     {
-      key: 'tanggal', title: 'Tanggal',
-      render: val => (
+      key: 'judul', title: 'Judul',
+      render: (v, row) => (
         <div>
-          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{formatDate(val)}</p>
-          <p className="text-xs text-gray-400">{new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(new Date(val))}</p>
+          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{v || '-'}</p>
+          <p className="text-xs text-gray-400">{formatDate(row.tanggal)} · {new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(new Date(row.tanggal))}</p>
         </div>
       )
     },
     {
-      key: 'waktu', title: 'Waktu',
-      render: v => <span className="text-sm text-gray-600 dark:text-gray-400">{formatTime(v)} WIB</span>
+      key: 'waktu_mulai', title: 'Waktu',
+      render: v => <span className="text-sm text-gray-600 dark:text-gray-400">{v ? `${formatTime(v)} WIB` : '-'}</span>
     },
     {
       key: 'lokasi', title: 'Lokasi',
@@ -178,6 +180,12 @@ export default function AdminJadwal() {
             </div>
           )}
           <Input
+            label="Judul Pertemuan*"
+            placeholder="contoh: Pertemuan Majelis Ta'lim"
+            value={form.judul}
+            onChange={e => setForm(f => ({ ...f, judul: e.target.value }))}
+          />
+          <Input
             label="Tanggal Pertemuan*"
             type="date"
             value={form.tanggal}
@@ -186,8 +194,8 @@ export default function AdminJadwal() {
           <Input
             label="Waktu"
             type="time"
-            value={form.waktu}
-            onChange={e => setForm(f => ({ ...f, waktu: e.target.value }))}
+            value={form.waktu_mulai}
+            onChange={e => setForm(f => ({ ...f, waktu_mulai: e.target.value }))}
           />
           <Input
             label="Lokasi / Tuan Rumah"
@@ -199,8 +207,8 @@ export default function AdminJadwal() {
             label="Keterangan"
             placeholder="Keterangan tambahan"
             rows={2}
-            value={form.keterangan}
-            onChange={e => setForm(f => ({ ...f, keterangan: e.target.value }))}
+            value={form.deskripsi}
+            onChange={e => setForm(f => ({ ...f, deskripsi: e.target.value }))}
           />
           <div className="flex gap-3 pt-1">
             <Button variant="secondary" className="flex-1" onClick={() => setModal(false)}>Batal</Button>

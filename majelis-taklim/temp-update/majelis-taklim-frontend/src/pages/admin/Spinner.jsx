@@ -85,8 +85,10 @@ function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
     )
   }
 
+  // Catatan: D1/SQLite menyimpan kolom INTEGER (0/1), bukan boolean asli —
+  // jadi perbandingan harus truthy check, bukan strict `=== true`.
   const sudahSelesai = jadwalTerakhir.status === 'selesai'
-  const iuranSudahDicatat = jadwalTerakhir.iuran_sudah_dicatat === true
+  const iuranSudahDicatat = !!jadwalTerakhir.iuran_sudah_dicatat
 
   if (!sudahSelesai) {
     return (
@@ -387,12 +389,14 @@ export default function AdminSpinner() {
   const jamaahList = jamaahData?.data || jamaahData || []
   const jadwalTerakhir = jadwalTerakhirData?.data || jadwalTerakhirData || null
 
-  // Spinner aktif HANYA jika: pertemuan terakhir selesai DAN iuran sudah dicatat
+  // Spinner aktif HANYA jika: pertemuan terakhir selesai DAN iuran sudah dicatat.
+  // Catatan: iuran_sudah_dicatat dari D1/SQLite berupa INTEGER 0/1, bukan
+  // boolean asli — pakai truthy check (!!), bukan `=== true`.
   const workflowSiap = !loadingJadwal
     && !errorJadwal
     && jadwalTerakhir !== null
     && jadwalTerakhir.status === 'selesai'
-    && jadwalTerakhir.iuran_sudah_dicatat === true
+    && !!jadwalTerakhir.iuran_sudah_dicatat
 
   const jamaahBelumHost = jamaahList.filter(j => !j.sudah_pernah_host)
   const pesertaFase = faseDetail?.peserta || faseDetail?.data?.peserta || []

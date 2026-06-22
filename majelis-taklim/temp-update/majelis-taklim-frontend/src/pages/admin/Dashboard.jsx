@@ -46,10 +46,10 @@ export default function AdminDashboard() {
         <div className="flex justify-center py-8"><Spinner /></div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          <StatCard icon="👥" label="Total Jamaah"    value={d?.totalJamaah    || d?.total_jamaah    || 0} color="emerald" />
-          <StatCard icon="✅" label="Hadir Bulan Ini"  value={d?.kehadiranBulanIni || d?.kehadiran_bulan_ini || 0} color="blue" />
-          <StatCard icon="💰" label="Iuran Bulan Ini"  value={formatCurrency(d?.iuranBulanIni || d?.iuran_bulan_ini || 0)} color="amber" />
-          <StatCard icon="📢" label="Pengumuman Aktif" value={d?.pengumumanAktif || d?.pengumuman_aktif || 0} color="purple" />
+          <StatCard icon="👥" label="Total Jamaah"    value={d?.jamaah_aktif || 0} color="emerald" />
+          <StatCard icon="✅" label="Hadir Bulan Ini"  value={d?.kehadiran_bulan_ini || 0} color="blue" />
+          <StatCard icon="💰" label="Iuran Bulan Ini"  value={formatCurrency(d?.iuran_bulan_ini?.total || 0)} color="amber" />
+          <StatCard icon="📢" label="Pengumuman Aktif" value={d?.pengumuman_aktif || 0} color="purple" />
         </div>
       )}
 
