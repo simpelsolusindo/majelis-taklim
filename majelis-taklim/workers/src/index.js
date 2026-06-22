@@ -1,4 +1,3 @@
-// ============================================================
 // Majelis Taklim — Cloudflare Workers Entry Point
 //
 // Akses publik  : GET /api/dashboard, /api/bacaan, /api/jadwal, /api/pengumuman
@@ -104,3 +103,4 @@ function dispatch(request, env, path) {
 
   return createResponse({ error: 'Route tidak ditemukan: ' + path }, 404);
 }
+EOF_INDEXJS
