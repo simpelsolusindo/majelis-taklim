@@ -73,10 +73,10 @@ export default function PublicDashboard() {
           <div className="flex justify-center py-6"><Spinner /></div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <StatCard icon="👥" label="Jamaah Aktif"    value={dashboard?.totalJamaah    || dashboard?.total_jamaah    || 0} color="emerald" />
-            <StatCard icon="✅" label="Hadir Bulan Ini"  value={dashboard?.kehadiranBulanIni || dashboard?.kehadiran_bulan_ini || 0} color="blue"    />
-            <StatCard icon="💰" label="Iuran Bulan Ini"  value={formatCurrency(dashboard?.iuranBulanIni || dashboard?.iuran_bulan_ini || 0)} sub="Terkumpul" color="amber"   />
-            <StatCard icon="📢" label="Pengumuman"      value={dashboard?.pengumumanAktif || dashboard?.pengumuman_aktif || 0} sub="Aktif" color="purple"  />
+            <StatCard icon="👥" label="Jamaah Aktif"    value={dashboard?.jamaah_aktif || 0} color="emerald" />
+            <StatCard icon="✅" label="Hadir Bulan Ini"  value={dashboard?.kehadiran_bulan_ini || 0} color="blue"    />
+            <StatCard icon="💰" label="Iuran Bulan Ini"  value={formatCurrency(dashboard?.iuran_bulan_ini?.total || 0)} sub="Terkumpul" color="amber"   />
+            <StatCard icon="📢" label="Pengumuman"      value={dashboard?.pengumuman_aktif || 0} sub="Aktif" color="purple"  />
           </div>
         )}
 
@@ -105,10 +105,10 @@ export default function PublicDashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">
-                        {j.keterangan || "Majelis Ta'lim"}
+                        {j.judul || "Majelis Ta'lim"}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {j.waktu && <>{formatTime(j.waktu)} WIB</>}
+                        {j.waktu_mulai && <>{formatTime(j.waktu_mulai)} WIB</>}
                         {j.lokasi && <> · {j.lokasi}</>}
                       </p>
                     </div>

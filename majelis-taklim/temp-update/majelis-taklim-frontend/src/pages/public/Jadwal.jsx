@@ -59,15 +59,15 @@ export default function JadwalPage() {
                 </div>
                 <div>
                   <p className="font-bold text-lg leading-snug">
-                    {next.keterangan || 'Majelis Ta\'lim'}
+                    {next.judul || 'Majelis Ta\'lim'}
                   </p>
                   <p className="text-emerald-100 text-sm mt-1">
                     {new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(next.tanggal))}
                   </p>
-                  {next.waktu && (
+                  {next.waktu_mulai && (
                     <p className="text-emerald-100 text-sm flex items-center gap-1 mt-0.5">
                       <Clock className="w-3.5 h-3.5" />
-                      {formatTime(next.waktu)} WIB
+                      {formatTime(next.waktu_mulai)} WIB
                     </p>
                   )}
                   {next.lokasi && (
@@ -131,11 +131,11 @@ function JadwalCard({ jadwal, past }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-              {jadwal.keterangan || "Majelis Ta'lim"}
+              {jadwal.judul || "Majelis Ta'lim"}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">
               {new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(tanggal)}
-              {jadwal.waktu ? ` · ${formatTime(jadwal.waktu)} WIB` : ''}
+              {jadwal.waktu_mulai ? ` · ${formatTime(jadwal.waktu_mulai)} WIB` : ''}
               {jadwal.lokasi ? ` · ${jadwal.lokasi}` : ''}
             </p>
           </div>
