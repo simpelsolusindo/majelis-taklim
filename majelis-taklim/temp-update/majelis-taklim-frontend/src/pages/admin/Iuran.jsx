@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { iuranApi, jamaahApi } from '../../api/services'
+import { iuranApi, jamaahApi, jenisIuranApi, jadwalApi } from '../../api/services'
 import { Button, Input, Select, Modal, Table, Pagination, ConfirmDialog, Badge } from '../../components/ui'
-import { Plus, Edit, Trash2, Filter } from 'lucide-react'
+import { Plus, Edit, Trash2 } from 'lucide-react'
 import { formatCurrency, formatDate, currentMonth } from '../../utils/helpers'
 
 const EMPTY_FORM = {
   jamaah_id: '',
-  nominal: '',
-  tanggal_bayar: new Date().toISOString().slice(0, 10),
+  jenis_iuran_id: '',
+  jadwal_id: '',
+  jumlah: '',
   periode: currentMonth(),
-  keterangan: ''
+  keterangan: '',
+  status: 'lunas'
 }
 
 export default function AdminIuran() {
@@ -22,6 +24,7 @@ export default function AdminIuran() {
   const [editId, setEditId] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-iuran', page, filter],
@@ -33,41 +36,85 @@ export default function AdminIuran() {
     queryFn: () => jamaahApi.getAll({ limit: 200 }).then(r => r.data)
   })
 
-  
+  const { data: jenisData } = useQuery({
+    queryKey: ['jenis-iuran'],
+    queryFn: () => jenisIuranApi.getAll().then(r => r.data)
+  })
+
+  // Ambil daftar jadwal untuk dropdown — pilih jadwal terkait iuran (opsional)
+  const { data: jadwalData } = useQuery({
+    queryKey: ['jadwal-all'],
+    queryFn: () => jadwalApi.getAll({ limit: 100 }).then(r => r.data)
+  })
 
   const iurans = data?.data || data || []
   const totalPages = data?.totalPages || 1
   const jamaahList = jamaahData?.data || jamaahData || []
-  
+  const jenisList = jenisData?.data || jenisData || []
+  const jadwalList = jadwalData?.data || jadwalData || []
 
   const deleteMut = useMutation({
     mutationFn: (id) => iuranApi.delete(id),
     onSuccess: () => { qc.invalidateQueries(['admin-iuran']); setDeleteId(null) }
   })
 
-  function openAdd() { setForm(EMPTY_FORM); setEditId(null); setModal(true) }
+  function openAdd() {
+    setForm(EMPTY_FORM)
+    setEditId(null)
+    setFormError('')
+    setModal(true)
+  }
+
   function openEdit(row) {
     setForm({
       jamaah_id: row.jamaah_id || '',
-  nominal: row.nominal || '',
-  tanggal_bayar: row.tanggal_bayar || new Date().toISOString().slice(0, 10),
-  periode: row.periode || currentMonth(),
-  keterangan: row.keterangan || ''
-
+      jenis_iuran_id: row.jenis_iuran_id || '',
+      jadwal_id: row.jadwal_id || '',
+      jumlah: row.jumlah || '',
+      periode: row.periode || currentMonth(),
+      keterangan: row.keterangan || '',
+      status: row.status || 'lunas'
     })
     setEditId(row.id)
+    setFormError('')
     setModal(true)
   }
 
   async function handleSave() {
-    if (!form.jamaah_id || !form.nominal || !form.tanggal_bayar) return
+    // Validasi wajib: jamaah dan jumlah harus diisi
+    if (!form.jamaah_id) {
+      setFormError('Jamaah wajib dipilih.')
+      return
+    }
+    if (!form.jumlah || Number(form.jumlah) <= 0) {
+      setFormError('Jumlah iuran wajib diisi dan lebih dari 0.')
+      return
+    }
+    setFormError('')
     setSaving(true)
+
+    // Siapkan payload — hapus field kosong agar tidak mengirim string kosong ke backend
+    const payload = {
+      jamaah_id: form.jamaah_id,
+      jumlah: Number(form.jumlah),
+      periode: form.periode,
+      status: form.status,
+      keterangan: form.keterangan || ''
+    }
+    if (form.jenis_iuran_id) payload.jenis_iuran_id = form.jenis_iuran_id
+    if (form.jadwal_id) payload.jadwal_id = form.jadwal_id
+
     try {
-      if (editId) await iuranApi.update(editId, form)
-      else await iuranApi.create(form)
+      if (editId) await iuranApi.update(editId, payload)
+      else await iuranApi.create(payload)
       qc.invalidateQueries(['admin-iuran'])
       setModal(false)
-    } finally { setSaving(false) }
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Gagal menyimpan iuran.'
+      setFormError(msg)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const columns = [
@@ -77,21 +124,25 @@ export default function AdminIuran() {
       render: (val, row) => <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{val || row.nama || '-'}</p>
     },
     {
-  key: 'nominal',
-  title: 'Jumlah',
-  render: (val) => (
-    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-      {formatCurrency(val)}
-    </span>
-  )
-},
+      key: 'jenis_nama',
+      title: 'Jenis',
+      render: (val) => <span className="text-xs text-gray-600 dark:text-gray-400">{val || '-'}</span>
+    },
+    {
+      key: 'jumlah',
+      title: 'Jumlah',
+      render: (val) => <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(val)}</span>
+    },
     {
       key: 'periode',
       title: 'Periode',
       render: (val) => <span className="text-xs text-gray-500">{val || '-'}</span>
     },
-    
-      
+    {
+      key: 'status',
+      title: 'Status',
+      render: (val) => <Badge color={val === 'lunas' ? 'emerald' : 'amber'}>{val === 'lunas' ? 'Lunas' : 'Belum'}</Badge>
+    },
     {
       key: 'id',
       title: 'Aksi',
@@ -121,7 +172,7 @@ export default function AdminIuran() {
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Filter */}
       <div className="flex gap-2">
         <input
           type="month"
@@ -147,23 +198,83 @@ export default function AdminIuran() {
       {/* Form Modal */}
       <Modal isOpen={modal} onClose={() => setModal(false)} title={editId ? 'Edit Iuran' : 'Tambah Iuran'}>
         <div className="space-y-4">
-          <Select label="Jamaah*" value={form.jamaah_id} onChange={e => setForm(f => ({ ...f, jamaah_id: e.target.value }))}>
+
+          {/* Error */}
+          {formError && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+              <p className="text-xs text-red-700 dark:text-red-300">{formError}</p>
+            </div>
+          )}
+
+          <Select
+            label="Jamaah*"
+            value={form.jamaah_id}
+            onChange={e => setForm(f => ({ ...f, jamaah_id: e.target.value }))}
+          >
             <option value="">Pilih jamaah</option>
             {jamaahList.map(j => <option key={j.id} value={j.id}>{j.nama}</option>)}
           </Select>
+
+          <Select
+            label="Jenis Iuran"
+            value={form.jenis_iuran_id}
+            onChange={e => setForm(f => ({ ...f, jenis_iuran_id: e.target.value }))}
+          >
+            <option value="">Pilih jenis iuran (opsional)</option>
+            {jenisList.map(j => <option key={j.id} value={j.id}>{j.nama}</option>)}
+          </Select>
+
+          {/* Jadwal terkait — opsional, untuk iuran yang dikaitkan dengan pertemuan tertentu */}
+          <Select
+            label="Pertemuan / Jadwal (opsional)"
+            value={form.jadwal_id}
+            onChange={e => setForm(f => ({ ...f, jadwal_id: e.target.value }))}
+          >
+            <option value="">Tidak terkait jadwal tertentu</option>
+            {jadwalList.map(j => (
+              <option key={j.id} value={j.id}>
+                {formatDate(j.tanggal)}{j.lokasi ? ` — ${j.lokasi}` : ''}
+              </option>
+            ))}
+          </Select>
+
           <Input
-  label="Jumlah (Rp)*"
-  type="number"
-  placeholder="0"
-  value={form.nominal}
-  onChange={e => setForm(f => ({ ...f, nominal: e.target.value }))}
- />
-          <Input label="Tanggal Bayar*" type="date" value={form.tanggal_bayar} onChange={e => setForm(f => ({ ...f, tanggal_bayar: e.target.value }))} />
-          <Input label="Periode" type="month" value={form.periode} onChange={e => setForm(f => ({ ...f, periode: e.target.value }))} />
-          <Input label="Keterangan" placeholder="Opsional" value={form.keterangan} onChange={e => setForm(f => ({ ...f, keterangan: e.target.value }))} />
+            label="Jumlah (Rp)*"
+            type="number"
+            placeholder="0"
+            min="0"
+            value={form.jumlah}
+            onChange={e => setForm(f => ({ ...f, jumlah: e.target.value }))}
+          />
+
+          <Input
+            label="Periode"
+            type="month"
+            value={form.periode}
+            onChange={e => setForm(f => ({ ...f, periode: e.target.value }))}
+          />
+
+          <Select
+            label="Status"
+            value={form.status}
+            onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+          >
+            <option value="lunas">Lunas</option>
+            <option value="belum">Belum Lunas</option>
+          </Select>
+
+          <Input
+            label="Keterangan"
+            placeholder="Opsional"
+            value={form.keterangan}
+            onChange={e => setForm(f => ({ ...f, keterangan: e.target.value }))}
+          />
+
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setModal(false)}>Batal</Button>
-            <Button className="flex-1" loading={saving} onClick={handleSave}>{editId ? 'Simpan' : 'Tambah'}</Button>
+            <Button className="flex-1" loading={saving} onClick={handleSave}>
+              {editId ? 'Simpan' : 'Tambah'}
+            </Button>
           </div>
         </div>
       </Modal>

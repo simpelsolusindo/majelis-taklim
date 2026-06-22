@@ -5,31 +5,22 @@ import { Button, Card, Modal, Input } from '../../components/ui'
 import { Plus, Play, Trophy, Calendar, CheckCircle, AlertCircle, Lock } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CATATAN INTEGRASI BACKEND (wajib selesai sebelum produksi)
+// CATATAN INTEGRASI BACKEND
 //
-// 1. GET /jadwal/:id
+// 1. GET /jadwal/terakhir
 //    Response: { id, tanggal, status: 'selesai'|'akan-datang', iuran_sudah_dicatat: bool }
-//    Dipakai untuk validasi workflow sebelum spinner boleh digunakan.
 //
-// 2. GET /jadwal/terakhir
-//    Response: { id, tanggal, status, iuran_sudah_dicatat, ... }
-//
-// 3. POST /spinner/hasil
+// 2. POST /spinner/hasil
 //    Body: { jamaah_id, nama_terpilih, fase_id, waktu }
 //
-// 4. PUT /jamaah/:id/next-host
+// 3. PUT /jamaah/:id/next-host
 //    Body: { is_next_host: bool, tanggal_host: string }
 //
-// 5. GET /spinner/riwayat
+// 4. GET /spinner/riwayat
 //    Response: [{ id, nama_terpilih, waktu, fase_id }]
-//    Setelah tersedia, hapus enabled:false pada query riwayat di bawah.
 //
-// 6. Rollback / transaksi atomik:
-//    Idealnya backend menyediakan satu endpoint POST /spinner/proses yang
-//    membungkus langkah 3-4-POST /jadwal dalam satu transaksi database.
-//    Selama belum tersedia, frontend melakukan rollback parsial (hapus jadwal
-//    jika gagal), tetapi hasil spinner & next-host tidak dapat di-rollback
-//    karena tidak ada endpoint DELETE /spinner/hasil/:id atau reset next-host.
+// 5. POST /jadwal
+//    Body: { tanggal, waktu, lokasi, keterangan, host_id }
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COLORS = [
@@ -37,8 +28,6 @@ const COLORS = [
   '#dc2626', '#d97706', '#65a30d', '#0284c7', '#9333ea'
 ]
 
-// ── Helper: format tanggal YYYY-MM-DD menggunakan waktu LOKAL (bukan UTC)
-//    Mencegah pergeseran 1 hari pada timezone WIB (UTC+7).
 function formatDateLocal(date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -46,8 +35,6 @@ function formatDateLocal(date) {
   return `${y}-${m}-${d}`
 }
 
-// ── Hitung tanggal +14 hari dari referensi jadwal terakhir.
-//    Input: string YYYY-MM-DD atau ISO dari backend.
 function getDefaultNextDate(tanggalRef) {
   if (!tanggalRef) return ''
   const parts = String(tanggalRef).split('T')[0].split('-')
@@ -59,7 +46,6 @@ function getDefaultNextDate(tanggalRef) {
 }
 
 // ── WorkflowGate: banner validasi status pertemuan ────────────────────────────
-// Ditampilkan di atas spinner. Spinner hanya aktif jika workflowSiap === true.
 function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
   if (loadingJadwal) {
     return (
@@ -81,7 +67,7 @@ function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
             Gagal memuat status pertemuan
           </p>
           <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
-            Pastikan backend endpoint <code className="bg-red-100 dark:bg-red-900 px-1 rounded">GET /jadwal/terakhir</code> sudah tersedia dan dapat diakses.
+            Pastikan backend endpoint <code className="bg-red-100 dark:bg-red-900 px-1 rounded">GET /jadwal/terakhir</code> sudah tersedia.
           </p>
         </div>
       </Card>
@@ -111,7 +97,7 @@ function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
             Spinner belum dapat digunakan
           </p>
           <p className="text-xs text-amber-500 dark:text-amber-400 mt-0.5">
-            Pertemuan terakhir belum ditandai selesai. Tandai pertemuan sebagai selesai terlebih dahulu.
+            Pertemuan terakhir belum ditandai selesai. Tandai pertemuan sebagai selesai terlebih dahulu di menu Jadwal.
           </p>
         </div>
       </Card>
@@ -127,14 +113,13 @@ function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
             Spinner belum dapat digunakan
           </p>
           <p className="text-xs text-amber-500 dark:text-amber-400 mt-0.5">
-            Iuran pertemuan terakhir belum dicatat. Catat iuran terlebih dahulu sebelum memutar spinner.
+            Iuran dari kehadiran pertemuan terakhir belum dicatat. Catat iuran terlebih dahulu sebelum memutar spinner.
           </p>
         </div>
       </Card>
     )
   }
 
-  // Semua syarat terpenuhi — tampilkan badge hijau
   return (
     <Card className="p-4 flex items-center gap-3 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20">
       <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -150,7 +135,9 @@ function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
   )
 }
 
-// ── SpinWheel: menerima prop `locked` untuk memblokir putaran ulang ───────────
+// ── SpinWheel ─────────────────────────────────────────────────────────────────
+// disabled = workflow belum siap (pertemuan belum selesai / iuran belum dicatat)
+// locked   = menunggu simpan hasil putaran sebelumnya
 function SpinWheel({ participants, onResult, locked, disabled }) {
   const canvasRef = useRef(null)
   const [spinning, setSpinning] = useState(false)
@@ -198,7 +185,6 @@ function SpinWheel({ participants, onResult, locked, disabled }) {
       ctx.restore()
     })
 
-    // Center circle
     ctx.beginPath()
     ctx.arc(cx, cy, 24, 0, 2 * Math.PI)
     ctx.fillStyle = '#fff'
@@ -213,7 +199,6 @@ function SpinWheel({ participants, onResult, locked, disabled }) {
     ctx.textBaseline = 'middle'
     ctx.fillText('☪', cx, cy)
 
-    // Pointer
     const px = cx
     const py = 8
     ctx.beginPath()
@@ -232,7 +217,6 @@ function SpinWheel({ participants, onResult, locked, disabled }) {
   useEffect(() => () => cancelAnimationFrame(animRef.current), [])
 
   function spin() {
-    // Blokir jika sedang spinning, kosong, locked (pemenang pending), atau disabled (workflow belum siap)
     if (spinning || count === 0 || locked || disabled) return
     setSpinning(true)
     setWinner(null)
@@ -255,15 +239,10 @@ function SpinWheel({ participants, onResult, locked, disabled }) {
         animRef.current = requestAnimationFrame(step)
       } else {
         const finalAngle = current % (2 * Math.PI)
-const arc = (2 * Math.PI) / count
-const pointerAngle = -Math.PI / 2
-const normalized =
-  ((pointerAngle - finalAngle) % (2 * Math.PI) + 2 * Math.PI) %
-  (2 * Math.PI)
-
-const idx = Math.floor(normalized / arc)
-
-const w = participants[idx]
+        const arc = (2 * Math.PI) / count
+        const normalized = ((-finalAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)
+        const idx = Math.floor(normalized / arc) % count
+        const w = participants[idx]
         setWinner(w)
         onResult?.(w)
         setSpinning(false)
@@ -282,7 +261,6 @@ const w = participants[idx]
     )
   }
 
-  // Overlay visual jika workflow belum siap
   const isBlockedByWorkflow = disabled && !locked
 
   return (
@@ -298,22 +276,31 @@ const w = participants[idx]
           </div>
         )}
       </div>
-
+      {winner && !locked && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-2xl px-6 py-3 text-center animate-bounce">
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">🏆 Terpilih!</p>
+          <p className="text-xl font-bold text-amber-800 dark:text-amber-200">{winner.nama || winner.name}</p>
+        </div>
+      )}
       <div className="flex flex-col items-center gap-1">
         <Button
           onClick={spin}
           loading={spinning}
           size="lg"
           className="w-40"
-          disabled={locked || disabled}
+          disabled={locked || disabled || spinning}
           variant={spinning || locked || disabled ? 'secondary' : 'primary'}
         >
           {spinning ? 'Memutar...' : <><Play className="w-4 h-4" /> Putar!</>}
         </Button>
-        {/* Pesan lock — muncul setelah pemenang keluar, sebelum disimpan */}
         {locked && !spinning && (
           <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 text-center">
-            Simpan hasil untuk melanjutkan. Hasil tidak dapat dibatalkan.
+            Simpan atau edit hasil terlebih dahulu sebelum memutar ulang.
+          </p>
+        )}
+        {disabled && !locked && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 text-center">
+            Selesaikan workflow pertemuan untuk mengaktifkan spinner.
           </p>
         )}
       </div>
@@ -324,38 +311,27 @@ const w = participants[idx]
 export default function AdminSpinner() {
   const qc = useQueryClient()
 
-  // ── hasPendingWinner: true setelah pemenang keluar, false setelah disimpan.
-  //    Mengunci SpinWheel agar tidak bisa diputar ulang sampai hasil disimpan.
-  //    CATATAN: Tombol "Batalkan" dihapus — sekali roda berhenti, hasil sah.
+  // hasPendingWinner: mengunci SpinWheel setelah hasil keluar, sampai disimpan
   const [hasPendingWinner, setHasPendingWinner] = useState(false)
 
   const [selectedFase, setSelectedFase] = useState(null)
   const [faseModal, setFaseModal] = useState(false)
   const [faseName, setFaseName] = useState('')
 
-  // ── State workflow hasil spinner ─────────────────────────
   const [hasilModal, setHasilModal] = useState(false)
   const [hasilWinner, setHasilWinner] = useState(null)
-  const [winnerAsli, setWinnerAsli] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [savedJadwal, setSavedJadwal] = useState(null)
 
-  // Form jadwal otomatis — bisa diedit admin sebelum disimpan
-  const [jadwalForm, setJadwalForm] = useState({
-    tanggal: '',
-    waktu: '19:30',
-    lokasi: '',
-    keterangan: ''
+  // Form hasil — bisa diedit admin sebelum disimpan (nama host + jadwal)
+  const [hasilForm, setHasilForm] = useState({
+    nama_terpilih: '',
+    jadwal_tanggal: '',
+    jadwal_waktu: '19:30',
+    jadwal_lokasi: '',
+    jadwal_keterangan: ''
   })
-useEffect(() => {
-  if (!hasilWinner) return
-
-  setJadwalForm(prev => ({
-    ...prev,
-    lokasi: hasilWinner.alamat || ''
-  }))
-}, [hasilWinner])
 
   // ── Queries ──────────────────────────────────────────────
   const { data: fasesData } = useQuery({
@@ -373,24 +349,17 @@ useEffect(() => {
     queryFn: () => jamaahApi.getAll({ limit: 200 }).then(r => r.data)
   })
 
-  // Jadwal terakhir — sekarang dipakai GANDA:
-  //   (a) validasi workflow: cek status & iuran_sudah_dicatat
-  //   (b) hitung tanggal default +14 hari untuk jadwal baru
-  //
-  // Backend WAJIB mengembalikan field:
-  //   { id, tanggal, status: 'selesai'|'akan-datang', iuran_sudah_dicatat: bool }
   const {
     data: jadwalTerakhirData,
     isLoading: loadingJadwal,
     isError: errorJadwal
   } = useQuery({
     queryKey: ['jadwal-terakhir'],
-    queryFn: () => jadwalApi.getLast().then(r => r.data)
+    queryFn: () => jadwalApi.getLast().then(r => r.data),
+    refetchOnWindowFocus: true,
+    staleTime: 0
   })
 
-  // Riwayat dari backend.
-  // TODO (backend): Buat endpoint GET /spinner/riwayat.
-  // Setelah tersedia, hapus `enabled: false` dan aktifkan query ini.
   const { data: riwayatData } = useQuery({
     queryKey: ['spinner-riwayat'],
     queryFn: () => spinnerApi.getRiwayat().then(r => r.data),
@@ -399,17 +368,12 @@ useEffect(() => {
   const riwayat = riwayatData?.data || riwayatData || []
 
   const { data: faseDetail, isError: faseError, error: faseErrDetail } = useQuery({
-  queryKey: ['spinner-fase', selectedFase],
-  queryFn: () => spinnerApi.getFaseById(selectedFase).then(r => r.data),
-  enabled: !!selectedFase
-})
+    queryKey: ['spinner-fase', selectedFase],
+    queryFn: () => spinnerApi.getFaseById(selectedFase).then(r => r.data),
+    enabled: !!selectedFase
+  })
 
-console.log('selectedFase=', selectedFase)
-console.log('faseDetail=', faseDetail)
-console.log('faseError=', faseError)
-console.log('faseErrDetail=', faseErrDetail)
-
-const createFaseMut = useMutation({
+  const createFaseMut = useMutation({
     mutationFn: (data) => spinnerApi.createFase(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['spinner-fases'] })
@@ -420,232 +384,118 @@ const createFaseMut = useMutation({
 
   // ── Derived state ────────────────────────────────────────
   const fases = fasesData?.data || fasesData || []
-useEffect(() => {
-  if (!selectedFase && fases.length > 0) {
-    setSelectedFase(fases[0].id)
-  }
-}, [fases, selectedFase])
-console.log('FASES =', fases)
   const jamaahList = jamaahData?.data || jamaahData || []
-  const rawJadwal =
-  jadwalTerakhirData?.data || jadwalTerakhirData || []
+  const jadwalTerakhir = jadwalTerakhirData?.data || jadwalTerakhirData || null
 
-const jadwalTerakhir = Array.isArray(rawJadwal)
-  ? rawJadwal[0] || null
-  : rawJadwal
-console.log('jadwalTerakhir=', jadwalTerakhir)
-  // ── Validasi workflow: spinner hanya aktif jika pertemuan selesai + iuran dicatat
-  //    Backend wajib sediakan field status & iuran_sudah_dicatat di GET /jadwal/terakhir
-   const workflowSiap = !loadingJadwal && !errorJadwal
+  // Spinner aktif HANYA jika: pertemuan terakhir selesai DAN iuran sudah dicatat
+  const workflowSiap = !loadingJadwal
     && !errorJadwal
     && jadwalTerakhir !== null
     && jadwalTerakhir.status === 'selesai'
     && jadwalTerakhir.iuran_sudah_dicatat === true
 
-  // Hanya jamaah yang belum pernah host di siklus ini.
-  // Backend wajib sediakan field sudah_pernah_host per jamaah.
   const jamaahBelumHost = jamaahList.filter(j => !j.sudah_pernah_host)
-  console.log('FASE DETAIL', faseDetail)
   const pesertaFase = faseDetail?.peserta || faseDetail?.data?.peserta || []
-  const totalPeserta = pesertaFase.length
-
-const sudahGiliran = pesertaFase.filter(
-  p => p.status === 'terpilih'
-).length
-
-const belumGiliran = pesertaFase.filter(
-  p => p.status === 'waiting'
-).length
-
-const progressPersen =
-  totalPeserta > 0
-    ? Math.round((sudahGiliran / totalPeserta) * 100)
-    : 0
-  console.log(
-  'PESERTA FASE',
-  JSON.stringify(pesertaFase, null, 2)
-)
-  const participants = pesertaFase
-    
+  const participants = selectedFase
+    ? pesertaFase.filter(j => !j.sudah_pernah_host)
+    : jamaahBelumHost
 
   // ── handleResult: dipanggil SpinWheel setelah animasi berhenti ───────────────
   function handleResult(winner) {
-    // Lock spinner — tidak boleh diputar lagi sampai hasil disimpan
-    // KEBIJAKAN: sekali roda berhenti, hasil sah. Tidak ada tombol Batalkan.
     setHasPendingWinner(true)
-
-    setWinnerAsli(winner)
     setHasilWinner(winner)
-    console.log('WINNER', winner)
     setSaveError(null)
     setSavedJadwal(null)
 
-    // Hitung tanggal default: jadwal terakhir + 14 hari
     const tanggalRef = jadwalTerakhir?.tanggal || null
     const fallbackDateObj = new Date()
     fallbackDateObj.setDate(fallbackDateObj.getDate() + 14)
     const fallbackDate = formatDateLocal(fallbackDateObj)
 
-    setJadwalForm({
-  tanggal: getDefaultNextDate(tanggalRef) || fallbackDate,
-  waktu: '19:30',
-  lokasi: winner.alamat || winner.nama || winner.name || '',
-  keterangan: `Tuan rumah terpilih via Spinner — ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
-})
+    // Isi form dengan nilai default — SEMUA bisa diedit admin sebelum disimpan
+    setHasilForm({
+      nama_terpilih: winner.nama || winner.name || '',
+      jadwal_tanggal: getDefaultNextDate(tanggalRef) || fallbackDate,
+      jadwal_waktu: '19:30',
+      jadwal_lokasi: winner.nama || winner.name || '',
+      jadwal_keterangan: `Tuan rumah terpilih via Spinner — ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
+    })
 
     setHasilModal(true)
   }
 
-  // ── handleSimpanHasil: 3 langkah + rollback parsial ─────────────────────────
-  //
-  // CATATAN ARSITEKTUR: Idealnya backend menyediakan satu endpoint atomik
-  // POST /spinner/proses yang menggabungkan langkah 1-3 dalam satu transaksi.
-  // Selama belum tersedia, rollback dilakukan secara parsial:
-  //   - Jika langkah 3 (buat jadwal) gagal → jadwal dihapus
-  //   - Langkah 1 (hasil spinner) & langkah 2 (next-host) tidak dapat di-rollback
-  //     karena backend belum menyediakan endpoint DELETE /spinner/hasil/:id
-  //     dan belum ada endpoint reset is_next_host.
+  // ── handleSimpanHasil: simpan hasil ke database ──────────────────────────────
+  // Data yang disimpan adalah isi hasilForm (yang sudah bisa diedit admin),
+  // bukan langsung data mentah dari spinner.
   async function handleSimpanHasil() {
-  console.log('=== SIMPAN HASIL DIMULAI ===')
-  console.log('hasilWinner =', hasilWinner)
-
-  if (!hasilWinner) return
+    if (!hasilWinner || !hasilForm.jadwal_tanggal) return
     setSaving(true)
     setSaveError(null)
 
-    let hasilId = null
     let jadwalId = null
 
     try {
       // Langkah 1: Simpan hasil putaran ke backend
-      // Endpoint: POST /spinner/hasil
-      // Backend wajib tersedia sebelum fitur ini final.
-      console.log('STEP 1 - save hasil')
-// STEP 1 sementara dinonaktifkan
-/*
-const hasilRes = await spinnerApi.saveHasil({
-  jamaah_id: hasilWinner.id,
-  nama_terpilih: hasilWinner.nama || hasilWinner.name,
-  fase_id: selectedFase || null,
-  waktu: new Date().toISOString()
-})
+      await spinnerApi.saveHasil({
+        jamaah_id: hasilWinner.id,
+        nama_terpilih: hasilForm.nama_terpilih,   // pakai nilai yang sudah diedit
+        fase_id: selectedFase || null,
+        waktu: new Date().toISOString()
+      })
 
-console.log('STEP 1 OK', hasilRes)
-      hasilId = hasilRes?.data?.id || hasilRes?.id || null
-*/
-      // Langkah 2: Tandai jamaah terpilih sebagai host berikutnya
-      // Endpoint: PUT /jamaah/:id/next-host
-      // Backend wajib tersedia sebelum fitur ini final.
-
+      // Langkah 2: Tandai jamaah sebagai host berikutnya
       if (hasilWinner.id) {
-  console.log('STEP 2 - set next host')
-// STEP 2 sementara dinonaktifkan
-/*
-  await spinnerApi.setNextHost(hasilWinner.id, {
-    is_next_host: true,
-    tanggal_host: jadwalForm.tanggal
-  })
-*/
-  console.log('STEP 2 OK')
-}
+        await spinnerApi.setNextHost(hasilWinner.id, {
+          is_next_host: true,
+          tanggal_host: hasilForm.jadwal_tanggal
+        })
+      }
 
-      // Langkah 3: Buat jadwal pertemuan otomatis dengan host_id
-      // Endpoint: POST /jadwal
-      // Tabel jadwal wajib memiliki kolom host_id (migrasi database diperlukan).
- console.log('STEP 2.5 - konfirmasi spinner')
-
-await spinnerApi.konfirmasi({
-  fase_id: fases[0]?.id,
-  jamaah_id: hasilWinner.id
-})
-
-console.log('STEP 2.5 OK')     
-      console.log('STEP 3 - create jadwal')
-
-console.log('HASIL WINNER FULL', hasilWinner)
-
-console.log('PAYLOAD JADWAL', {
-  judul: `Tahlil Bergilir - ${hasilWinner.nama}`,
-  tanggal: jadwalForm.tanggal,
-  host_id: hasilWinner.id
-})
-
-const jadwalRes = await jadwalApi.create({
-  judul: `Tahlil Bergilir - ${hasilWinner.nama}`,
-  tanggal: jadwalForm.tanggal,
-
-  waktu_mulai: jadwalForm.waktu,
-
-  lokasi: jadwalForm.lokasi,
-
-  deskripsi: jadwalForm.keterangan,
-
-  jenis: 'khusus',
-
-  host_id: hasilWinner.id
-})
-
-console.log(
-  'STEP 3 OK JSON',
-  JSON.stringify(jadwalRes, null, 2)
-)
+      // Langkah 3: Buat jadwal pertemuan otomatis menggunakan data form yang sudah diedit
+      const jadwalRes = await jadwalApi.create({
+        tanggal: hasilForm.jadwal_tanggal,
+        waktu: hasilForm.jadwal_waktu,
+        lokasi: hasilForm.jadwal_lokasi,
+        keterangan: hasilForm.jadwal_keterangan,
+        host_id: hasilWinner.id
+      })
       jadwalId = jadwalRes?.data?.id || jadwalRes?.id || null
-      setSavedJadwal({ ...jadwalForm, id: jadwalId })
+      setSavedJadwal({ ...hasilForm, id: jadwalId })
 
-      // Refresh cache agar UI langsung segar
+      // Refresh cache
       await qc.invalidateQueries({ queryKey: ['jamaah-all'] })
       await qc.invalidateQueries({ queryKey: ['jadwal-terakhir'] })
       await qc.invalidateQueries({ queryKey: ['admin-jadwal'] })
       await qc.invalidateQueries({ queryKey: ['spinner-riwayat'] })
 
     } catch (err) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Terjadi kesalahan'
+      setSaveError(`Gagal menyimpan: ${errMsg}. Silakan coba lagi.`)
 
-  console.error('ERROR SPINNER', err)
-  console.error('ERROR RESPONSE', err?.response)
-  console.error('ERROR DATA', err?.response?.data)
-
-  const errMsg = err?.response?.data?.message || err?.message || 'Terjadi kesalahan'
-  setSaveError(`Gagal menyimpan: ${errMsg}. Silakan coba lagi atau hubungi admin.`)
-
-      // Rollback parsial:
-      // - Hapus jadwal jika sudah terlanjur dibuat (langkah 3 berhasil tapi gagal setelahnya)
+      // Rollback jadwal jika terlanjur dibuat
       if (jadwalId) {
         await jadwalApi.delete(jadwalId).catch(() => {})
       }
-      // - TODO (backend): Tambahkan DELETE /spinner/hasil/:id untuk rollback hasil spinner
-      //   dan endpoint reset is_next_host agar rollback bisa lengkap.
-
     } finally {
       setSaving(false)
     }
   }
 
-  // ── handleTutupHasil: hanya menutup modal setelah berhasil disimpan ──────────
-  //    KEBIJAKAN: Tombol "Tutup" hanya muncul setelah berhasil disimpan.
-  //    Tidak ada tombol "Batalkan" — sekali roda berhenti, hasil sah.
   function handleTutupHasil() {
-    if (!savedJadwal && !saveError) return  // Jangan tutup jika belum simpan
     setHasilModal(false)
     setHasilWinner(null)
-    setWinnerAsli(null)
     setSaveError(null)
     setSavedJadwal(null)
-    setJadwalForm({ tanggal: '', waktu: '19:30', lokasi: '', keterangan: '' })
-    // Unlock spinner setelah berhasil disimpan
+    setHasilForm({ nama_terpilih: '', jadwal_tanggal: '', jadwal_waktu: '19:30', jadwal_lokasi: '', jadwal_keterangan: '' })
     setHasPendingWinner(false)
   }
 
-  // ── handleCloseModal: hanya diizinkan via tombol, bukan klik backdrop ────────
-  //    Modal tidak bisa ditutup paksa jika belum disimpan.
+  // Modal hanya bisa ditutup via tombol setelah tersimpan
   function handleCloseModal() {
-    // Jika sudah tersimpan atau ada error yang butuh konfirmasi, izinkan tutup
-    if (savedJadwal) {
-      handleTutupHasil()
-    }
-    // Jika belum disimpan: tidak lakukan apapun — user wajib menekan tombol Simpan
+    if (savedJadwal) handleTutupHasil()
+    // Jika belum disimpan: tidak lakukan apapun
   }
 
-  // ─────────────────────────────────────────────────────────
   return (
     <div className="p-5 space-y-5 max-w-2xl">
       <div>
@@ -653,8 +503,7 @@ console.log(
         <p className="text-sm text-gray-500">Roda putar pemilihan tuan rumah berikutnya</p>
       </div>
 
-      {/* ── Banner Validasi Workflow Pertemuan (Poin 1) ── */}
-      
+      {/* ── Banner Validasi Workflow ── */}
       <WorkflowGate
         jadwalTerakhir={jadwalTerakhir}
         loadingJadwal={loadingJadwal}
@@ -663,42 +512,22 @@ console.log(
 
       {/* Fase Selector — hanya tampil jika workflow siap */}
       {workflowSiap && (
-  <Card className="p-4">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm font-semibold">
-          Fase Aktif: {faseDetail?.fase?.nama || 'Fase 1'}
-        </p>
+        <div className="flex gap-2">
+          <select
+            value={selectedFase || ''}
+            onChange={e => setSelectedFase(e.target.value ? Number(e.target.value) : null)}
+            className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="">Pilih fase / gunakan semua jamaah</option>
+            {fases.map(f => <option key={f.id} value={f.id}>{f.nama}</option>)}
+          </select>
+          <Button size="sm" variant="secondary" onClick={() => setFaseModal(true)}>
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
 
-        <p className="text-xs text-gray-500 mt-1">
-          Peserta: {totalPeserta}
-        </p>
-
-        <p className="text-xs text-gray-500">
-          Sudah Host: {sudahGiliran}
-        </p>
-
-        <p className="text-xs text-gray-500">
-          Belum Host: {belumGiliran}
-        </p>
-      </div>
-
-      <div className="text-right">
-        <p className="text-sm font-bold text-emerald-600">
-          {progressPersen}%
-        </p>
-      </div>
-    </div>
-
-    <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
-      <div
-        className="bg-emerald-500 h-2 rounded-full"
-        style={{ width: `${progressPersen}%` }}
-      />
-    </div>
-  </Card>
-)}
-      {/* Error fase gagal dimuat */}
+      {/* Error fase */}
       {workflowSiap && selectedFase && faseError && (
         <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
           <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
@@ -720,32 +549,26 @@ console.log(
       {jamaahError && (
         <Card className="p-4 flex items-center gap-2 border border-red-200 dark:border-red-800">
           <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-          <p className="text-sm text-red-500">
-            {jamaahErr?.message || 'Gagal memuat jamaah'}
-          </p>
+          <p className="text-sm text-red-500">{jamaahErr?.message || 'Gagal memuat jamaah'}</p>
         </Card>
       )}
 
-      {/* Fase dipilih tapi belum ada peserta */}
+      {/* Belum ada peserta di fase */}
       {!jamaahLoading && workflowSiap && selectedFase && pesertaFase.length === 0 && (
         <Card className="p-4 text-center space-y-1 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
-          <p className="text-sm text-amber-700 dark:text-amber-300">
-            Belum ada peserta pada fase ini.
-          </p>
-          <p className="text-xs text-amber-500 dark:text-amber-400">
-            Tambahkan peserta ke fase terlebih dahulu.
-          </p>
+          <p className="text-sm text-amber-700 dark:text-amber-300">Belum ada peserta pada fase ini.</p>
+          <p className="text-xs text-amber-500 dark:text-amber-400">Tambahkan peserta ke fase terlebih dahulu.</p>
         </Card>
       )}
 
-      {/* Semua peserta sudah pernah jadi host — siklus selesai */}
+      {/* Semua sudah pernah host */}
       {!jamaahLoading && workflowSiap && pesertaFase.length > 0 && participants.length === 0 && (
         <Card className="p-4 text-center space-y-1 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20">
           <p className="text-sm text-emerald-700 dark:text-emerald-300">
             Semua peserta pada fase ini sudah pernah menjadi tuan rumah.
           </p>
           <p className="text-xs text-emerald-500 dark:text-emerald-400">
-            Silakan buat fase baru atau tunggu reset siklus host dari backend.
+            Silakan buat fase baru atau tunggu reset siklus dari backend.
           </p>
         </Card>
       )}
@@ -782,7 +605,7 @@ console.log(
         </Card>
       )}
 
-      {/* Riwayat Putaran dari backend (aktif setelah GET /spinner/riwayat tersedia) */}
+      {/* Riwayat */}
       {riwayat.length > 0 && (
         <Card className="p-4">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
@@ -798,9 +621,7 @@ console.log(
                   </span>
                 </div>
                 <span className="text-xs text-gray-400">
-                  {r.waktu
-                    ? new Date(r.waktu).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-                    : ''}
+                  {r.waktu ? new Date(r.waktu).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
                 </span>
               </div>
             ))}
@@ -808,94 +629,45 @@ console.log(
         </Card>
       )}
 
-      {/* ── Modal Workflow Hasil Spinner ──────────────────── */}
-      {/* Modal tidak bisa ditutup paksa (onClose hanya jalan jika sudah disimpan) */}
-      <Modal isOpen={hasilModal} onClose={handleCloseModal} title="Simpan Hasil Spinner">
+      {/* ── Modal Hasil Spinner ──────────────────────────────────────────────────── */}
+      {/* Tidak bisa ditutup paksa sebelum tersimpan */}
+      <Modal isOpen={hasilModal} onClose={handleCloseModal} title="Hasil Spinner — Edit & Simpan">
         <div className="space-y-4">
 
-          {/* Pemenang */}
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 text-center">
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">🏆 Tuan Rumah Berikutnya</p>
-            <div className="space-y-1">
-  <p className="text-xl font-bold text-amber-800 dark:text-amber-200">
-    {hasilWinner?.nama || hasilWinner?.name}
-  </p>
-  <div className="space-y-2">
-  <label className="block text-xs font-medium text-gray-500">
-    Ganti Peserta (opsional)
-  </label>
-
-  <select
-    value={hasilWinner?.id || ''}
-    onChange={(e) => {
-      const selected = participants.find(
-        p => String(p.id) === e.target.value
-      )
-      if (selected) setHasilWinner(selected)
-    }}
-    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-2 bg-white dark:bg-gray-800"
-  >
-    {participants.map((p) => (
-      <option key={p.id} value={p.id}>
-        {p.nama}
-      </option>
-    ))}
-  </select>
-
-  {winnerAsli && hasilWinner?.id !== winnerAsli.id && (
-    <p className="text-xs text-amber-600">
-      Hasil spinner: <b>{winnerAsli.nama}</b> → Diganti menjadi <b>{hasilWinner.nama}</b>
-    </p>
-  )}
-</div>
-
-  {hasilWinner?.alamat && (
-    <p className="text-sm text-amber-700 dark:text-amber-300">
-      📍 {hasilWinner.alamat}
-    </p>
-  )}
-
-  <p className="text-xs text-amber-600 dark:text-amber-400">
-    Putaran ke-{sudahGiliran + 1}
-  </p>
-
-  <p className="text-xs text-amber-600 dark:text-amber-400">
-    Fase {selectedFase || 1}
-  </p>
-</div>
-            {!savedJadwal && (
-              <p className="text-xs text-amber-500 dark:text-amber-400 mt-1">
-                Hasil ini sah dan tidak dapat dibatalkan. Simpan untuk melanjutkan.
-              </p>
-            )}
-          </div>
-<div className="mt-3 text-left bg-white/50 dark:bg-black/20 rounded-lg p-3">
-  
-
-  
-</div>
           {/* Sudah tersimpan */}
           {savedJadwal ? (
-            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 space-y-1">
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-                <CheckCircle className="w-4 h-4 shrink-0" />
-                <p className="text-sm font-semibold">Berhasil disimpan!</p>
-              </div>
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 pl-6">
-                Jadwal pertemuan berikutnya dibuat otomatis:
-              </p>
-              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 pl-6">
-                📅 {new Date(savedJadwal.tanggal + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                {' · '}{savedJadwal.waktu} WIB
-              </p>
-              {savedJadwal.lokasi && (
+            <>
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 space-y-1">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle className="w-4 h-4 shrink-0" />
+                  <p className="text-sm font-semibold">Berhasil disimpan!</p>
+                </div>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 pl-6">
-                  📍 {savedJadwal.lokasi}
+                  Tuan rumah: <strong>{savedJadwal.nama_terpilih}</strong>
                 </p>
-              )}
-            </div>
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 pl-6">
+                  📅 {new Date(savedJadwal.jadwal_tanggal + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {' · '}{savedJadwal.jadwal_waktu} WIB
+                </p>
+                {savedJadwal.jadwal_lokasi && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 pl-6">
+                    📍 {savedJadwal.jadwal_lokasi}
+                  </p>
+                )}
+              </div>
+              <Button className="w-full" onClick={handleTutupHasil}>
+                Tutup
+              </Button>
+            </>
           ) : (
             <>
+              {/* Info: hasil bisa diedit sebelum disimpan */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl px-4 py-3">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  ✏️ Data di bawah dapat diedit sebelum disimpan. Klik <strong>Simpan & Buat Jadwal</strong> untuk menyimpan ke database.
+                </p>
+              </div>
+
               {/* Error */}
               {saveError && (
                 <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 flex items-start gap-2">
@@ -903,55 +675,52 @@ console.log(
                   <div>
                     <p className="text-xs text-red-700 dark:text-red-300">{saveError}</p>
                     <p className="text-xs text-red-500 dark:text-red-400 mt-1">
-                      Catatan: Hasil spinner mungkin sudah tersimpan di backend. Periksa data sebelum mencoba lagi.
+                      Hasil spinner mungkin sudah tersimpan. Periksa data sebelum mencoba lagi.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Form jadwal otomatis */}
+              {/* Form — semua field bisa diedit */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <Input
+                  label="Nama Tuan Rumah Terpilih*"
+                  placeholder="Nama tuan rumah"
+                  value={hasilForm.nama_terpilih}
+                  onChange={e => setHasilForm(f => ({ ...f, nama_terpilih: e.target.value }))}
+                />
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 pt-1">
                   <Calendar className="w-4 h-4 shrink-0" />
                   <p className="text-xs">Jadwal pertemuan berikutnya (default +14 hari, dapat diubah)</p>
                 </div>
                 <Input
                   label="Tanggal Pertemuan*"
                   type="date"
-                  value={jadwalForm.tanggal}
-                  onChange={e => setJadwalForm(f => ({ ...f, tanggal: e.target.value }))}
+                  value={hasilForm.jadwal_tanggal}
+                  onChange={e => setHasilForm(f => ({ ...f, jadwal_tanggal: e.target.value }))}
                 />
                 <Input
                   label="Waktu"
                   type="time"
-                  value={jadwalForm.waktu}
-                  onChange={e => setJadwalForm(f => ({ ...f, waktu: e.target.value }))}
+                  value={hasilForm.jadwal_waktu}
+                  onChange={e => setHasilForm(f => ({ ...f, jadwal_waktu: e.target.value }))}
                 />
                 <Input
                   label="Lokasi / Alamat Tuan Rumah"
                   placeholder="Nama/alamat tuan rumah"
-                  value={jadwalForm.lokasi}
-                  onChange={e => setJadwalForm(f => ({ ...f, lokasi: e.target.value }))}
+                  value={hasilForm.jadwal_lokasi}
+                  onChange={e => setHasilForm(f => ({ ...f, jadwal_lokasi: e.target.value }))}
                 />
                 <Input
                   label="Keterangan"
                   placeholder="Keterangan tambahan"
-                  value={jadwalForm.keterangan}
-                  onChange={e => setJadwalForm(f => ({ ...f, keterangan: e.target.value }))}
+                  value={hasilForm.jadwal_keterangan}
+                  onChange={e => setHasilForm(f => ({ ...f, jadwal_keterangan: e.target.value }))}
                 />
               </div>
-            </>
-          )}
 
-          {/* Tombol aksi — KEBIJAKAN: tidak ada tombol Batalkan */}
-          <div className="flex gap-3 pt-1">
-            {savedJadwal ? (
-              <Button className="flex-1" onClick={handleTutupHasil}>
-                Tutup
-              </Button>
-            ) : (
-              <>
-                {/* Tombol Batalkan dihapus: sekali roda berhenti, hasil sah */}
+              {/* Tombol aksi */}
+              <div className="flex gap-3 pt-1">
                 {saveError && (
                   <Button variant="secondary" className="flex-1" onClick={() => setSaveError(null)}>
                     Coba Lagi
@@ -960,14 +729,17 @@ console.log(
                 <Button
                   className="flex-1"
                   loading={saving}
-                  disabled={!jadwalForm.tanggal || saving}
+                  disabled={!hasilForm.jadwal_tanggal || !hasilForm.nama_terpilih || saving}
                   onClick={handleSimpanHasil}
                 >
                   Simpan & Buat Jadwal
                 </Button>
-              </>
-            )}
-          </div>
+              </div>
+              <p className="text-xs text-center text-gray-400 dark:text-gray-500">
+                Data hanya tersimpan ke database setelah tombol Simpan ditekan.
+              </p>
+            </>
+          )}
         </div>
       </Modal>
 
