@@ -10,8 +10,6 @@ import AdminLayout from './components/layout/AdminLayout'
 import PublicDashboard from './pages/public/Dashboard'
 import BacaanPage      from './pages/public/Bacaan'
 import JadwalPage      from './pages/public/Jadwal'
-import IuranPage       from './pages/public/Iuran'
-import GiliranPage     from './pages/public/Giliran'
 import JamaahPage      from './pages/public/Jamaah'
 import LaporanPage     from './pages/public/Laporan'
 import PengumumanPage  from './pages/public/Pengumuman'
@@ -65,12 +63,11 @@ export default function App() {
         <AuthProvider>
           <BrowserRouter>
             <Routes>
-              {/* Public — 7 menu utama */}
+              {/* Public — Iuran & Giliran tidak ditampilkan di publik, hanya admin.
+                  Jamaah cukup lihat ringkasan iuran lewat menu Laporan. */}
               <Route path="/"           element={<PL><PublicDashboard /></PL>} />
               <Route path="/bacaan"     element={<PL><BacaanPage      /></PL>} />
               <Route path="/jadwal"     element={<PL><JadwalPage      /></PL>} />
-              <Route path="/iuran"      element={<PL><IuranPage       /></PL>} />
-              <Route path="/giliran"    element={<PL><GiliranPage     /></PL>} />
               <Route path="/jamaah"     element={<PL><JamaahPage      /></PL>} />
               <Route path="/laporan"    element={<PL><LaporanPage     /></PL>} />
               <Route path="/pengumuman" element={<PL><PengumumanPage  /></PL>} />
