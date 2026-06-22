@@ -7,7 +7,7 @@
 
 import { handleAuth }    from './routes/auth.js';
 import { handleJamaah }  from './routes/jamaah.js';
-import { handleIuran }   from './routes/iuran.js';
+import { handleIuran, handleJenisIuran } from './routes/iuran.js';
 import { handleSpinner } from './routes/spinner.js';
 import {
   handleDashboard,
@@ -85,6 +85,7 @@ function dispatch(request, env, path) {
   if (path.startsWith('/api/pengumuman')) return handlePengumuman(request, env, path);
   if (path.startsWith('/api/jamaah'))     return handleJamaah(request, env, path);
   if (path.startsWith('/api/kehadiran'))  return handleKehadiran(request, env, path);
+  if (path.startsWith('/api/jenis-iuran')) return handleJenisIuran(request, env, path);
   if (path.startsWith('/api/iuran'))      return handleIuran(request, env, path);
   if (path.startsWith('/api/spinner'))    return handleSpinner(request, env, path);
   if (path.startsWith('/api/laporan'))    return handleLaporan(request, env, path);
