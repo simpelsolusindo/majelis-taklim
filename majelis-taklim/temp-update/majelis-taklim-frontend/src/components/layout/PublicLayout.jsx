@@ -1,15 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../../store/theme'
-import { Home, BookOpen, CalendarDays, Wallet, Disc, Users, BarChart2, Moon, Sun, Settings } from 'lucide-react'
+import { Home, BookOpen, CalendarDays, Users, BarChart2, Moon, Sun, Settings } from 'lucide-react'
 import { cn } from '../../utils/helpers'
 
-// 7 menu sesuai panduan — Bacaan di urutan ke-2 setelah Beranda
+// 5 menu publik — Iuran & Giliran tidak ditampilkan ke jamaah (khusus admin).
+// Ringkasan iuran untuk jamaah cukup dilihat lewat menu Laporan.
 const navItems = [
   { to: '/',        icon: Home,          label: 'Beranda',  exact: true },
   { to: '/bacaan',  icon: BookOpen,       label: 'Bacaan'               },
   { to: '/jadwal',  icon: CalendarDays,   label: 'Jadwal'               },
-  { to: '/iuran',   icon: Wallet,         label: 'Iuran'                },
-  { to: '/giliran', icon: Disc,           label: 'Giliran'              },
   { to: '/jamaah',  icon: Users,          label: 'Jamaah'               },
   { to: '/laporan', icon: BarChart2,      label: 'Laporan'              },
 ]
