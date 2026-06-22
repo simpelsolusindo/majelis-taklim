@@ -48,12 +48,11 @@ export const kehadiranApi = {
 // Jadwal
 export const jadwalApi = {
   getAll: (params) => client.get('/jadwal', { params }),
-  getById: (id) => client.get(`/jadwal/${id}`),   // GET /jadwal/:id — wajib ada field: { status, iuran_sudah_dicatat }
-  create: (data) => client.post('/jadwal', data),  // Body harus terima field host_id
+  getById: (id) => client.get(`/jadwal/${id}`),
+  create: (data) => client.post('/jadwal', data),
   update: (id, data) => client.put(`/jadwal/${id}`, data),
   delete: (id) => client.delete(`/jadwal/${id}`),
-  // Ambil jadwal terakhir — backend endpoint GET /jadwal/terakhir
-  // Response wajib: { id, tanggal, status: 'selesai'|'akan-datang', iuran_sudah_dicatat: bool }
+  // GET /jadwal/terakhir — jadwal terbaru berdasarkan tanggal
   getLast: () => client.get('/jadwal/terakhir'),
 }
 
