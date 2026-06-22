@@ -101,4 +101,3 @@ export async function auditLog(env, userId, aksi, tabel, recordId, detail) {
     console.error('Audit log error:', e);
   }
 }
-EOF_HELPERSJS
