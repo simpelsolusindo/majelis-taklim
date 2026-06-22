@@ -1,4 +1,3 @@
-// ============================================================
 // Iuran Routes
 // ============================================================
 
@@ -214,3 +213,4 @@ export async function handleIuran(request, env, path) {
 
   return createResponse({ error: 'Route not found' }, 404);
 }
+EOF_IURANJS
