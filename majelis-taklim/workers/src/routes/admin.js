@@ -2,7 +2,7 @@
 // Admin Routes — Pengumuman, Laporan Export, Ganti Password
 // ============================================================
 
-import { createResponse, requireAdmin, auditLog } from '../utils/helpers.js';
+import { createResponse, requireAdmin, auditLog, JENIS_IURAN_RUTINAN_ID } from '../utils/helpers.js';
 
 // ── PENGUMUMAN (admin CRUD) ──────────────────────────────────
 export async function handlePengumumanAdmin(request, env, path) {
@@ -163,8 +163,8 @@ export async function handleLaporan(request, env, path) {
       ).bind(bulan).first(),
       env.DB.prepare(
         `SELECT COUNT(*) as c FROM jamaah WHERE status='aktif'
-         AND id NOT IN (SELECT jamaah_id FROM iuran WHERE periode=? AND jenis_iuran_id=1)`
-      ).bind(bulan).first(),
+         AND id NOT IN (SELECT jamaah_id FROM iuran WHERE periode=? AND jenis_iuran_id=?)`
+      ).bind(bulan, JENIS_IURAN_RUTINAN_ID).first(),
     ]);
     return createResponse({
       bulan,

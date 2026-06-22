@@ -53,6 +53,7 @@ export async function handleDashboard(request, env, path) {
       : null,
     jadwal_terdekat:     jadwalDekat.results,
     pengumuman:          pengumuman.results,
+    pengumuman_aktif:    pengumuman.results.length,
     fase_aktif:          faseAktif,
   });
 }
@@ -95,7 +96,19 @@ export async function handleBacaan(request, env, path) {
 export async function handleJadwal(request, env, path) {
   const url      = new URL(request.url);
   const segments = path.split('/').filter(Boolean);
-  const id       = segments[2] ? parseInt(segments[2]) : null;
+  const rawId    = segments[2];
+
+  // GET /api/jadwal/terakhir — jadwal paling baru (berdasarkan tanggal)
+  // Dipakai frontend untuk cek status langkah kehadiran/iuran terakhir.
+  if (request.method === 'GET' && rawId === 'terakhir') {
+    const row = await env.DB.prepare(
+      `SELECT * FROM jadwal WHERE status != 'batal' ORDER BY tanggal DESC LIMIT 1`
+    ).first();
+    if (!row) return createResponse({ error: 'Belum ada jadwal' }, 404);
+    return createResponse(row);
+  }
+
+  const id = rawId && !isNaN(rawId) ? parseInt(rawId) : null;
 
   if (request.method === 'GET' && !id) {
     const bulan = url.searchParams.get('bulan');
@@ -122,27 +135,50 @@ export async function handleJadwal(request, env, path) {
 
   if (request.method === 'POST') {
     const body = await request.json();
-    const { judul, deskripsi, jenis, tanggal, waktu_mulai, waktu_selesai, lokasi, penanggung_jawab } = body;
+    const { judul, deskripsi, jenis, tanggal, waktu_mulai, waktu_selesai, lokasi, penanggung_jawab, host_id } = body;
     if (!judul || !tanggal) return createResponse({ error: 'Judul dan tanggal wajib diisi' }, 400);
     const result = await env.DB.prepare(
-      `INSERT INTO jadwal (judul, deskripsi, jenis, tanggal, waktu_mulai, waktu_selesai, lokasi, penanggung_jawab)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO jadwal (judul, deskripsi, jenis, tanggal, waktu_mulai, waktu_selesai, lokasi, penanggung_jawab, host_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(judul, deskripsi||null, jenis||'khusus', tanggal, waktu_mulai||null,
-           waktu_selesai||null, lokasi||null, penanggung_jawab||null).run();
+           waktu_selesai||null, lokasi||null, penanggung_jawab||null, host_id||null).run();
     await auditLog(env, request.user.id, 'CREATE', 'jadwal', result.meta.last_row_id, { judul });
     return createResponse({ id: result.meta.last_row_id, ...body }, 201);
   }
 
   if (request.method === 'PUT' && id) {
+    // Update parsial: hanya kolom yang benar-benar dikirim di body yang diubah.
+    // Ini penting karena frontend kadang hanya mengirim { status: 'selesai' }
+    // atau { iuran_sudah_dicatat: true } saja, tanpa field lain.
+    const existing = await env.DB.prepare('SELECT * FROM jadwal WHERE id = ?').bind(id).first();
+    if (!existing) return createResponse({ error: 'Jadwal tidak ditemukan' }, 404);
+
     const body = await request.json();
-    const { judul, deskripsi, jenis, tanggal, waktu_mulai, waktu_selesai, lokasi, penanggung_jawab, status } = body;
+    const merged = {
+      judul: body.judul ?? existing.judul,
+      deskripsi: body.deskripsi ?? existing.deskripsi,
+      jenis: body.jenis ?? existing.jenis,
+      tanggal: body.tanggal ?? existing.tanggal,
+      waktu_mulai: body.waktu_mulai ?? existing.waktu_mulai,
+      waktu_selesai: body.waktu_selesai ?? existing.waktu_selesai,
+      lokasi: body.lokasi ?? existing.lokasi,
+      penanggung_jawab: body.penanggung_jawab ?? existing.penanggung_jawab,
+      status: body.status ?? existing.status,
+      host_id: body.host_id ?? existing.host_id,
+      iuran_sudah_dicatat: body.iuran_sudah_dicatat !== undefined
+        ? (body.iuran_sudah_dicatat ? 1 : 0)
+        : existing.iuran_sudah_dicatat,
+    };
+
     await env.DB.prepare(
       `UPDATE jadwal SET judul=?, deskripsi=?, jenis=?, tanggal=?, waktu_mulai=?,
-       waktu_selesai=?, lokasi=?, penanggung_jawab=?, status=? WHERE id=?`
-    ).bind(judul, deskripsi||null, jenis, tanggal, waktu_mulai||null,
-           waktu_selesai||null, lokasi||null, penanggung_jawab||null, status||'aktif', id).run();
+       waktu_selesai=?, lokasi=?, penanggung_jawab=?, status=?, host_id=?, iuran_sudah_dicatat=?
+       WHERE id=?`
+    ).bind(merged.judul, merged.deskripsi, merged.jenis, merged.tanggal, merged.waktu_mulai,
+           merged.waktu_selesai, merged.lokasi, merged.penanggung_jawab, merged.status,
+           merged.host_id, merged.iuran_sudah_dicatat, id).run();
     await auditLog(env, request.user.id, 'UPDATE', 'jadwal', id, body);
-    return createResponse({ success: true });
+    return createResponse({ success: true, ...merged, id });
   }
 
   if (request.method === 'DELETE' && id) {
@@ -154,9 +190,13 @@ export async function handleJadwal(request, env, path) {
   return createResponse({ error: 'Method not allowed' }, 405);
 }
 
-// ── KEHADIRAN (admin POST, publik GET terbatas) ───────────────
+// ── KEHADIRAN (admin POST/PUT/DELETE, publik GET terbatas) ───
+const STATUS_KEHADIRAN_VALID = ['hadir', 'tidak_hadir', 'izin'];
+
 export async function handleKehadiran(request, env, path) {
-  const url = new URL(request.url);
+  const url      = new URL(request.url);
+  const segments = path.split('/').filter(Boolean);
+  const id       = segments[2] && !isNaN(segments[2]) ? parseInt(segments[2]) : null;
 
   if (request.method === 'GET') {
     const jadwal_id = url.searchParams.get('jadwal_id');
@@ -207,22 +247,69 @@ export async function handleKehadiran(request, env, path) {
   // POST: simpan absensi batch — admin only
   if (request.method === 'POST') {
     requireAdmin(request);
-    const { jadwal_id, absensi } = await request.json();
-    if (!jadwal_id || !absensi?.length)
-      return createResponse({ error: 'Data tidak lengkap' }, 400);
+    const body = await request.json();
+    const { jadwal_id, absensi } = body;
 
-    const stmts = absensi.map(a =>
+    // Mendukung dua bentuk payload:
+    // 1) Batch: { jadwal_id, absensi: [{ jamaah_id, status, catatan }, ...] }
+    // 2) Single: { jadwal_id, jamaah_id, status, catatan }
+    const items = absensi?.length
+      ? absensi
+      : (body.jamaah_id ? [{ jamaah_id: body.jamaah_id, status: body.status, catatan: body.catatan }] : []);
+
+    if (!jadwal_id || items.length === 0)
+      return createResponse({ error: 'Data tidak lengkap: jadwal_id dan absensi/jamaah_id wajib diisi' }, 400);
+
+    // Validasi status sesuai CHECK constraint kolom kehadiran.status
+    for (const a of items) {
+      const status = a.status || 'hadir';
+      if (!STATUS_KEHADIRAN_VALID.includes(status)) {
+        return createResponse({
+          error: `Status kehadiran tidak valid: "${status}". Gunakan salah satu: ${STATUS_KEHADIRAN_VALID.join(', ')}`
+        }, 400);
+      }
+    }
+
+    const stmts = items.map(a =>
       env.DB.prepare(
-        `INSERT INTO kehadiran (jadwal_id, jamaah_id, status, catatan)
-         VALUES (?, ?, ?, ?)
+        `INSERT INTO kehadiran (jadwal_id, jamaah_id, status, catatan, created_at)
+         VALUES (?, ?, ?, ?, datetime('now'))
          ON CONFLICT(jadwal_id, jamaah_id)
          DO UPDATE SET status=excluded.status, catatan=excluded.catatan`
-      ).bind(jadwal_id, a.jamaah_id, a.status||'hadir', a.catatan||null)
+      ).bind(jadwal_id, a.jamaah_id, a.status || 'hadir', a.catatan || null)
     );
     await env.DB.batch(stmts);
     await auditLog(env, request.user.id, 'ABSENSI', 'kehadiran', jadwal_id,
-                   { count: absensi.length });
-    return createResponse({ success: true, count: absensi.length });
+                   { count: items.length });
+    return createResponse({ success: true, count: items.length });
+  }
+
+  // PUT /api/kehadiran/:id — update satu baris kehadiran
+  if (request.method === 'PUT' && id) {
+    requireAdmin(request);
+    const body = await request.json();
+    const status = body.status || 'hadir';
+    if (!STATUS_KEHADIRAN_VALID.includes(status)) {
+      return createResponse({
+        error: `Status kehadiran tidak valid: "${status}". Gunakan salah satu: ${STATUS_KEHADIRAN_VALID.join(', ')}`
+      }, 400);
+    }
+    const existing = await env.DB.prepare('SELECT * FROM kehadiran WHERE id = ?').bind(id).first();
+    if (!existing) return createResponse({ error: 'Data kehadiran tidak ditemukan' }, 404);
+
+    await env.DB.prepare(
+      `UPDATE kehadiran SET status = ?, catatan = ? WHERE id = ?`
+    ).bind(status, body.catatan ?? existing.catatan, id).run();
+    await auditLog(env, request.user.id, 'UPDATE', 'kehadiran', id, body);
+    return createResponse({ success: true, id, status, catatan: body.catatan ?? existing.catatan });
+  }
+
+  // DELETE /api/kehadiran/:id
+  if (request.method === 'DELETE' && id) {
+    requireAdmin(request);
+    await env.DB.prepare('DELETE FROM kehadiran WHERE id = ?').bind(id).run();
+    await auditLog(env, request.user.id, 'DELETE', 'kehadiran', id, {});
+    return createResponse({ success: true });
   }
 
   return createResponse({ error: 'Method not allowed' }, 405);
