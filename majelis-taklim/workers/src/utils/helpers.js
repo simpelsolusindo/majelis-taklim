@@ -2,6 +2,12 @@
 // Helpers & Utilities
 // ============================================================
 
+// Jenis iuran baku (lihat migration 0003_fix_kehadiran_iuran.sql)
+// ID_RUTINAN dipakai backend untuk MEMAKSA jenis iuran saat pencatatan
+// berasal dari kehadiran — admin tidak bisa memilih jenis lain untuk kasus ini.
+export const JENIS_IURAN_RUTINAN_ID = 1;
+export const JENIS_IURAN_LAIN_ID = 2;
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
