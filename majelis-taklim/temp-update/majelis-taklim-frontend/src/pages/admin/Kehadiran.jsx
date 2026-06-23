@@ -6,15 +6,14 @@ import { Plus, Trash2, CheckCircle, AlertCircle, Lock, Users, CreditCard, Chevro
 import { formatDate, formatCurrency, currentMonth } from '../../utils/helpers'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WORKFLOW KEHADIRAN:
+// WORKFLOW KEHADIRAN (disederhanakan jadi satu langkah):
 //
 // LANGKAH 1 — Pilih jadwal pertemuan
-// LANGKAH 2 — Checklist kehadiran semua jamaah → Simpan Kehadiran
-//             → backend otomatis/frontend tandai jadwal.status = 'selesai'
-// LANGKAH 3 — Catat iuran peserta yang hadir → Simpan Iuran
-//             → backend set iuran_sudah_dicatat = true pada jadwal
+// LANGKAH 2 — Checklist kehadiran (Hadir/Izin/Tidak Hadir) → Simpan
+//             → kehadiran TERSIMPAN + iuran otomatis tercatat BERSAMAAN
+//             → jadwal.status = 'selesai' DAN iuran_sudah_dicatat = true
 //
-// Setelah langkah 2+3 selesai → Spinner aktif
+// Setelah langkah 2 selesai → Spinner aktif
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_KEHADIRAN = [
@@ -29,19 +28,27 @@ function badgeColor(status) {
   return 'red'
 }
 
-// ── Tab: Catat Kehadiran Pertemuan (Langkah 1 & 2) ───────────────────────────
+// ── Tab: Catat Kehadiran Pertemuan ───────────────────────────────────────────
+//
+// SATU LANGKAH: checklist kehadiran + iuran otomatis tersimpan bersamaan.
+//
+// Aturan iuran otomatis (nominal dari jenis_iuran "Iuran Rutinan".nominal_default):
+//   - Hadir       → iuran tercatat sebesar nominal_default
+//   - Izin        → iuran TETAP tercatat sebesar nominal_default (tetap kena iuran)
+//                   tapi status yang DISIMPAN ke tabel kehadiran adalah 'tidak_hadir'
+//                   (DB hanya mengenal 2 nilai efektif: hadir / tidak_hadir)
+//   - Tidak Hadir → iuran tidak dicatat sama sekali (Rp0)
+//
 function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
   const [selectedJadwal, setSelectedJadwal] = useState('')
-  const [checklistStatus, setChecklistStatus] = useState({}) // { jamaah_id: 'hadir'|'tidak' }
-  const [savingKehadiran, setSavingKehadiran] = useState(false)
-  const [kehadiranSaved, setKehadiranSaved] = useState(false)
-  const [kehadiranError, setKehadiranError] = useState('')
+  const [checklistStatus, setChecklistStatus] = useState({}) // { jamaah_id: 'hadir'|'izin'|'tidak_hadir' }
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
-  // Iuran per jamaah untuk langkah 3
-  const [iuranData, setIuranData] = useState({}) // { jamaah_id: { jumlah, jenis_iuran_id, status } }
-  const [savingIuran, setSavingIuran] = useState(false)
-  const [iuranSaved, setIuranSaved] = useState(false)
-  const [iuranError, setIuranError] = useState('')
+  // Nominal iuran otomatis — ambil dari jenis "Iuran Rutinan" (id=1)
+  const jenisRutinan = jenisIuranList.find(j => j.id === 1)
+  const nominalRutinan = Number(jenisRutinan?.nominal_default || 0)
 
   // Fetch kehadiran yang sudah ada untuk jadwal terpilih
   const { data: existingKehadiranData, isLoading: loadingExisting } = useQuery({
@@ -51,31 +58,14 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
     onSuccess: (data) => {
       const list = data?.data || data || []
       if (list.length > 0) {
-        // Pre-fill checklist dari data yang sudah ada
+        // Pre-fill checklist dari data yang sudah ada.
+        // Catatan: karena 'izin' disimpan sebagai 'tidak_hadir' di DB, saat
+        // membuka kembali data lama, izin akan tampil sebagai 'Tidak Hadir'
+        // (tidak bisa dibedakan lagi dari tidak hadir biasa setelah tersimpan).
         const existing = {}
         list.forEach(k => { existing[k.jamaah_id] = k.status })
         setChecklistStatus(existing)
-        setKehadiranSaved(true)
-      }
-    }
-  })
-
-  const existingKehadiran = existingKehadiranData?.data || existingKehadiranData || []
-
-  // Fetch iuran yang sudah ada untuk jadwal terpilih
-  const { data: existingIuranData } = useQuery({
-    queryKey: ['iuran-by-jadwal', selectedJadwal],
-    queryFn: () => iuranApi.getAll({ jadwal_id: selectedJadwal, limit: 200 }).then(r => r.data),
-    enabled: !!selectedJadwal && kehadiranSaved,
-    onSuccess: (data) => {
-      const list = data?.data || data || []
-      if (list.length > 0) {
-        const existing = {}
-        list.forEach(i => {
-          existing[i.jamaah_id] = { jumlah: i.nominal || '' }
-        })
-        setIuranData(existing)
-        setIuranSaved(true)
+        setSaved(true)
       }
     }
   })
@@ -85,119 +75,90 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
   // Ketika pilih jadwal baru, reset state dan langsung set semua jamaah = hadir
   function handleSelectJadwal(id) {
     setSelectedJadwal(id)
-    // Default semua hadir — admin tinggal ubah yang tidak hadir saja
     const init = {}
     jamaahList.forEach(j => { init[j.id] = 'hadir' })
     setChecklistStatus(init)
-    setKehadiranSaved(false)
-    setKehadiranError('')
-    setIuranData({})
-    setIuranSaved(false)
-    setIuranError('')
+    setSaved(false)
+    setError('')
   }
 
-  // jamaah yang hadir → akan dibuatkan iuran
-  const jamaahHadir = jamaahList.filter(j => checklistStatus[j.id] === 'hadir')
+  // Estimasi total iuran yang akan tercatat (hadir + izin, bukan tidak_hadir)
+  const estimasiIuran = jamaahList.reduce((total, j) => {
+    const status = checklistStatus[j.id]
+    return (status === 'hadir' || status === 'izin') ? total + nominalRutinan : total
+  }, 0)
 
-  // Simpan kehadiran semua jamaah sekaligus (pakai endpoint batch)
-  async function handleSimpanKehadiran() {
+  // Simpan kehadiran DAN iuran sekaligus dalam satu langkah
+  async function handleSimpanSemua() {
     if (!selectedJadwal) return
     if (Object.keys(checklistStatus).length === 0) {
-      setKehadiranError('Belum ada status kehadiran yang diisi. Isi checklist terlebih dahulu.')
+      setError('Belum ada status kehadiran yang diisi. Isi checklist terlebih dahulu.')
       return
     }
-    setSavingKehadiran(true)
-    setKehadiranError('')
+    setSaving(true)
+    setError('')
     try {
-      const absensi = jamaahList.map(j => ({
-        jamaah_id: j.id,
-        status: checklistStatus[j.id] || 'tidak_hadir',
-        catatan: ''
-      }))
+      const jadwal = jadwalList.find(j => String(j.id) === String(selectedJadwal))
+      const periode = jadwal?.tanggal ? jadwal.tanggal.slice(0, 7) : currentMonth()
+      const tanggalBayar = jadwal?.tanggal || new Date().toISOString().slice(0, 10)
 
-      // Kirim sekaligus lewat endpoint batch — backend menangani insert/update otomatis
+      // 1) Simpan kehadiran — status 'izin' dikonversi jadi 'tidak_hadir' di DB,
+      //    tapi kita simpan dulu status ASLI (sebelum konversi) untuk menentukan iuran.
+      const absensi = jamaahList.map(j => {
+        const statusAsli = checklistStatus[j.id] || 'tidak_hadir'
+        const statusDb = statusAsli === 'izin' ? 'tidak_hadir' : statusAsli
+        return { jamaah_id: j.id, status: statusDb, catatan: statusAsli === 'izin' ? 'izin' : '' }
+      })
+
       await kehadiranApi.create({ jadwal_id: selectedJadwal, absensi })
-
-      // Tandai jadwal sebagai selesai setelah kehadiran disimpan
       await jadwalApi.update(selectedJadwal, { status: 'selesai' })
+
+      // 2) Simpan iuran otomatis untuk jamaah yang Hadir ATAU Izin (status asli,
+      //    bukan status yang sudah dikonversi ke DB)
+      const jamaahKenaIuran = jamaahList.filter(j => {
+        const statusAsli = checklistStatus[j.id]
+        return statusAsli === 'hadir' || statusAsli === 'izin'
+      })
+
+      if (jamaahKenaIuran.length > 0 && nominalRutinan > 0) {
+        const iuranPromises = jamaahKenaIuran.map(j => iuranApi.create({
+          jamaah_id: j.id,
+          jadwal_id: selectedJadwal,
+          nominal: nominalRutinan,
+          tanggal_bayar: tanggalBayar,
+          periode,
+          keterangan: checklistStatus[j.id] === 'izin'
+            ? 'Iuran otomatis — izin tidak hadir'
+            : 'Iuran otomatis dari kehadiran pertemuan'
+        }))
+        await Promise.all(iuranPromises)
+      }
+
+      // 3) Tandai iuran sudah dicatat — karena di alur baru ini, iuran SELALU
+      //    ikut tercatat bersamaan dengan kehadiran (tidak ada langkah terpisah lagi)
+      await jadwalApi.update(selectedJadwal, { iuran_sudah_dicatat: true })
 
       qc.invalidateQueries(['admin-kehadiran'])
       qc.invalidateQueries(['kehadiran-by-jadwal', selectedJadwal])
       qc.invalidateQueries(['admin-jadwal'])
       qc.invalidateQueries(['jadwal-terakhir'])
       qc.invalidateQueries(['jadwal-all'])
-
-      setKehadiranSaved(true)
-    } catch (err) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Gagal menyimpan kehadiran.'
-      setKehadiranError(msg)
-    } finally {
-      setSavingKehadiran(false)
-    }
-  }
-
-  // Simpan iuran untuk jamaah yang hadir — otomatis bertipe "Iuran Rutinan"
-  async function handleSimpanIuran() {
-    if (!selectedJadwal) return
-    const jadwal = jadwalList.find(j => String(j.id) === String(selectedJadwal))
-    const periode = jadwal?.tanggal ? jadwal.tanggal.slice(0, 7) : currentMonth()
-    const tanggalBayar = jadwal?.tanggal || new Date().toISOString().slice(0, 10)
-
-    const jamaahDenganIuran = jamaahHadir.filter(j => {
-      const d = iuranData[j.id]
-      return d && Number(d.jumlah) > 0
-    })
-
-    if (jamaahDenganIuran.length === 0) {
-      setIuranError('Minimal satu jamaah harus diisi jumlah iurannya.')
-      return
-    }
-
-    setSavingIuran(true)
-    setIuranError('')
-    try {
-      // Ambil iuran yang sudah ada untuk jadwal ini
-      const existingIuran = existingIuranData?.data || existingIuranData || []
-
-      const promises = jamaahDenganIuran.map(j => {
-        const d = iuranData[j.id]
-        // Tidak perlu kirim jenis_iuran_id — backend otomatis memaksa
-        // "Iuran Rutinan" untuk semua iuran yang menyertakan jadwal_id.
-        const payload = {
-          jamaah_id: j.id,
-          jadwal_id: selectedJadwal,
-          nominal: Number(d.jumlah),
-          tanggal_bayar: tanggalBayar,
-          periode,
-          keterangan: 'Iuran dari kehadiran pertemuan'
-        }
-
-        const existing = existingIuran.find(i => i.jamaah_id === j.id)
-        if (existing) return iuranApi.update(existing.id, payload)
-        return iuranApi.create(payload)
-      })
-      await Promise.all(promises)
-
-      // Tandai iuran sudah dicatat di jadwal ini
-      await jadwalApi.update(selectedJadwal, { iuran_sudah_dicatat: true })
-
       qc.invalidateQueries(['admin-iuran'])
       qc.invalidateQueries(['iuran-by-jadwal', selectedJadwal])
-      qc.invalidateQueries(['jadwal-terakhir'])
 
-      setIuranSaved(true)
+      setSaved(true)
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Gagal menyimpan iuran.'
-      setIuranError(msg)
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Gagal menyimpan kehadiran & iuran.'
+      setError(msg)
     } finally {
-      setSavingIuran(false)
+      setSaving(false)
     }
   }
 
-  const isJadwalSelesai = jadwalTerpilih?.status === 'selesai'
+  const isSelesai = jadwalTerpilih?.status === 'selesai'
   // Catatan: D1/SQLite menyimpan INTEGER (0/1), bukan boolean asli —
-  // pakai truthy check, bukan `=== true` (sama seperti bug di Spinner.jsx).
-  const isIuranDicatat = !!jadwalTerpilih?.iuran_sudah_dicatat
+  // pakai truthy check, bukan `=== true`.
+  const isTercatatLengkap = isSelesai && !!jadwalTerpilih?.iuran_sudah_dicatat
 
   return (
     <div className="space-y-5">
@@ -223,12 +184,9 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
 
         {/* Status badge jadwal terpilih */}
         {jadwalTerpilih && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Badge color={isJadwalSelesai ? 'emerald' : 'amber'}>
-              {isJadwalSelesai ? '✓ Kehadiran tercatat' : '⏳ Kehadiran belum dicatat'}
-            </Badge>
-            <Badge color={isIuranDicatat ? 'emerald' : 'amber'}>
-              {isIuranDicatat ? '✓ Iuran tercatat' : '⏳ Iuran belum dicatat'}
+          <div className="mt-3">
+            <Badge color={isTercatatLengkap ? 'emerald' : 'amber'}>
+              {isTercatatLengkap ? '✓ Kehadiran & iuran tercatat' : '⏳ Belum dicatat'}
             </Badge>
           </div>
         )}
@@ -238,21 +196,35 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
       {selectedJadwal && (
         <Card className="p-5">
           <div className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0 ${isJadwalSelesai ? 'bg-emerald-500' : 'bg-emerald-600'}`}>
-                {isJadwalSelesai ? '✓' : '2'}
+              <div className={`w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0 ${isTercatatLengkap ? 'bg-emerald-500' : 'bg-emerald-600'}`}>
+                {isTercatatLengkap ? '✓' : '2'}
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Checklist Kehadiran</h3>
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Checklist Kehadiran & Iuran</h3>
                 <p className="text-xs text-gray-400">{jamaahList.length} jamaah terdaftar — default semua hadir</p>
               </div>
             </div>
 
           {/* Sudah selesai */}
-          {isJadwalSelesai && (
-            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 mb-4">
+          {isTercatatLengkap && (
+            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 mb-4 mt-3">
               <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
               <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
-                Kehadiran sudah dicatat dan pertemuan ditandai selesai.
+                Kehadiran & iuran sudah tercatat. Spinner kini dapat digunakan.
+              </p>
+            </div>
+          )}
+
+          {/* Info aturan iuran otomatis */}
+          {!isTercatatLengkap && (
+            <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl px-3 py-2.5 mt-3 mb-3 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <Badge color="emerald">Iuran Rutinan</Badge>
+                <p className="text-xs text-gray-400">otomatis {formatCurrency(nominalRutinan)} — tidak perlu diisi manual</p>
+              </div>
+              <p className="text-xs text-gray-400">
+                <strong className="text-emerald-600 dark:text-emerald-400">Hadir</strong> & <strong className="text-amber-600 dark:text-amber-400">Izin</strong> tetap kena iuran ·
+                {' '}<strong className="text-red-500">Tidak Hadir</strong> tidak kena iuran
               </p>
             </div>
           )}
@@ -269,14 +241,14 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
                     {STATUS_KEHADIRAN.map(s => (
                       <button
                         key={s.value}
-                        disabled={isJadwalSelesai}
+                        disabled={isTercatatLengkap}
                         onClick={() => setChecklistStatus(prev => ({ ...prev, [j.id]: s.value }))}
                         className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all
                           ${checklistStatus[j.id] === s.value
                             ? `bg-${s.color}-100 text-${s.color}-700 dark:bg-${s.color}-900/40 dark:text-${s.color}-300 ring-2 ring-${s.color}-400`
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                           }
-                          ${isJadwalSelesai ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}
+                          ${isTercatatLengkap ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}
                         `}
                       >
                         {s.label}
@@ -288,141 +260,36 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
             </div>
           )}
 
-          {/* Error kehadiran */}
-          {kehadiranError && (
-            <div className="mt-3 flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-              <p className="text-xs text-red-700 dark:text-red-300">{kehadiranError}</p>
+          {/* Estimasi total iuran */}
+          {!isTercatatLengkap && (
+            <div className="flex items-center justify-between mt-4 px-3 py-2.5 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Estimasi total iuran tercatat</span>
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(estimasiIuran)}</span>
             </div>
           )}
 
-          {/* Tombol simpan kehadiran */}
-          {!isJadwalSelesai && (
+          {/* Error */}
+          {error && (
+            <div className="mt-3 flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
+            </div>
+          )}
+
+          {/* Tombol simpan — satu langkah untuk kehadiran + iuran */}
+          {!isTercatatLengkap && (
             <div className="mt-4">
               <Button
                 className="w-full"
-                loading={savingKehadiran}
-                disabled={Object.keys(checklistStatus).length === 0 || savingKehadiran}
-                onClick={handleSimpanKehadiran}
+                loading={saving}
+                disabled={Object.keys(checklistStatus).length === 0 || saving}
+                onClick={handleSimpanSemua}
               >
                 <CheckCircle className="w-4 h-4" />
-                Simpan Kehadiran & Tandai Pertemuan Selesai
+                Simpan Kehadiran & Iuran
               </Button>
               <p className="text-xs text-center text-gray-400 mt-2">
-                Setelah disimpan, status pertemuan otomatis berubah menjadi <strong>Selesai</strong>.
-              </p>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* LANGKAH 3 — Catat Iuran dari Kehadiran */}
-      {selectedJadwal && isJadwalSelesai && (
-        <Card className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className={`w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0 ${isIuranDicatat ? 'bg-emerald-500' : 'bg-emerald-600'}`}>
-              {isIuranDicatat ? '✓' : '3'}
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Catat Iuran Peserta</h3>
-              <p className="text-xs text-gray-400">
-                {jamaahHadir.length} jamaah hadir — isi jumlah iuran masing-masing
-              </p>
-            </div>
-          </div>
-
-          {/* Sudah tersimpan */}
-          {isIuranDicatat && (
-            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 mb-4">
-              <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-              <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
-                Iuran sudah dicatat. Spinner kini dapat digunakan.
-              </p>
-            </div>
-          )}
-
-          {jamaahHadir.length === 0 && !isIuranDicatat && (
-            <p className="text-sm text-amber-600 dark:text-amber-400 text-center py-3">
-              Tidak ada jamaah dengan status Hadir pada pertemuan ini.
-            </p>
-          )}
-
-          {/* Info: jenis iuran otomatis */}
-          {jamaahHadir.length > 0 && (
-            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl px-3 py-2 mb-3">
-              <Badge color="emerald">Iuran Rutinan</Badge>
-              <p className="text-xs text-gray-400">
-                Jenis iuran dari kehadiran selalu otomatis "Iuran Rutinan" dan tidak dapat diubah.
-              </p>
-            </div>
-          )}
-
-          {/* Form iuran per jamaah */}
-          {jamaahHadir.length > 0 && (
-            <div className="space-y-3">
-              {/* Header */}
-              <div className="grid grid-cols-12 gap-2 px-1">
-                <span className="col-span-7 text-xs font-semibold text-gray-500 uppercase">Jamaah</span>
-                <span className="col-span-5 text-xs font-semibold text-gray-500 uppercase">Jumlah (Rp)</span>
-              </div>
-
-              {jamaahHadir.map(j => {
-                const d = iuranData[j.id] || { jumlah: '' }
-                return (
-                  <div key={j.id} className="grid grid-cols-12 gap-2 items-center border-b border-gray-50 dark:border-gray-800 pb-3 last:border-0 last:pb-0">
-                    <span className="col-span-7 text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{j.nama}</span>
-                    <div className="col-span-5">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="0"
-                        disabled={isIuranDicatat}
-                        value={d.jumlah}
-                        onChange={e => setIuranData(prev => ({
-                          ...prev,
-                          [j.id]: { ...d, jumlah: e.target.value }
-                        }))}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Error iuran */}
-          {iuranError && (
-            <div className="mt-3 flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-              <p className="text-xs text-red-700 dark:text-red-300">{iuranError}</p>
-            </div>
-          )}
-
-          {/* Tombol simpan iuran */}
-          {!isIuranDicatat && jamaahHadir.length > 0 && (
-            <div className="mt-4">
-              <Button
-                className="w-full"
-                loading={savingIuran}
-                disabled={savingIuran}
-                onClick={handleSimpanIuran}
-              >
-                <CreditCard className="w-4 h-4" />
-                Simpan Iuran Pertemuan
-              </Button>
-              <p className="text-xs text-center text-gray-400 mt-2">
-                Setelah disimpan, <strong>Spinner</strong> dapat digunakan untuk memilih tuan rumah berikutnya.
-              </p>
-            </div>
-          )}
-
-          {/* Semua done */}
-          {isIuranDicatat && (
-            <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3 flex items-center gap-2">
-              <ChevronRight className="w-4 h-4 text-blue-500 shrink-0" />
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Semua langkah selesai. Buka menu <strong>Spinner</strong> untuk memilih tuan rumah berikutnya.
+                Iuran otomatis tercatat sesuai status. Setelah disimpan, <strong>Spinner</strong> dapat digunakan.
               </p>
             </div>
           )}

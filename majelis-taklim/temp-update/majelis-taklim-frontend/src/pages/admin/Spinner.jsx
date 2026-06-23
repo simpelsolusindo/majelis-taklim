@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { spinnerApi, jamaahApi, jadwalApi } from '../../api/services'
-import { Button, Card, Modal, Input } from '../../components/ui'
+import { Button, Card, Modal, Input, Select } from '../../components/ui'
 import { Plus, Play, Trophy, Calendar, CheckCircle, AlertCircle, Lock } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -325,10 +325,14 @@ export default function AdminSpinner() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [savedJadwal, setSavedJadwal] = useState(null)
+  // Popup pengumuman pemenang — tampil dulu sebelum form edit, supaya admin
+  // sempat melihat dengan jelas siapa yang terpilih sebelum lanjut mengedit.
+  const [showWinnerPopup, setShowWinnerPopup] = useState(false)
 
   // Form hasil — bisa diedit admin sebelum disimpan (nama host + jadwal)
   const [hasilForm, setHasilForm] = useState({
     nama_terpilih: '',
+    host_jamaah_id: '',
     jadwal_tanggal: '',
     jadwal_waktu: '19:30',
     jadwal_lokasi: '',
@@ -419,12 +423,20 @@ export default function AdminSpinner() {
     // Isi form dengan nilai default — SEMUA bisa diedit admin sebelum disimpan
     setHasilForm({
       nama_terpilih: winner.nama || winner.name || '',
+      host_jamaah_id: winner.id || '',
       jadwal_tanggal: getDefaultNextDate(tanggalRef) || fallbackDate,
       jadwal_waktu: '19:30',
       jadwal_lokasi: winner.nama || winner.name || '',
       jadwal_keterangan: `Tuan rumah terpilih via Spinner — ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
     })
 
+    // Tampilkan popup pengumuman pemenang dulu — modal edit baru muncul
+    // setelah admin menutup popup ini, supaya tidak langsung tertutupi.
+    setShowWinnerPopup(true)
+  }
+
+  function handleLanjutKeForm() {
+    setShowWinnerPopup(false)
     setHasilModal(true)
   }
 
@@ -433,35 +445,42 @@ export default function AdminSpinner() {
   // bukan langsung data mentah dari spinner.
   async function handleSimpanHasil() {
     if (!hasilWinner || !hasilForm.jadwal_tanggal) return
+    if (!hasilForm.host_jamaah_id) {
+      setSaveError('Tuan rumah wajib dipilih dari daftar jamaah.')
+      return
+    }
     setSaving(true)
     setSaveError(null)
 
     let jadwalId = null
+    // host_jamaah_id adalah sumber kebenaran (bisa diganti admin lewat dropdown,
+    // beda dari hasilWinner.id yang merupakan hasil asli spin) — pastikan ID,
+    // bukan string, sebelum dikirim ke backend.
+    const hostId = Number(hasilForm.host_jamaah_id)
 
     try {
       // Langkah 1: Simpan hasil putaran ke backend
       await spinnerApi.saveHasil({
-        jamaah_id: hasilWinner.id,
+        jamaah_id: hostId,
         nama_terpilih: hasilForm.nama_terpilih,   // pakai nilai yang sudah diedit
         fase_id: selectedFase || null,
         waktu: new Date().toISOString()
       })
 
       // Langkah 2: Tandai jamaah sebagai host berikutnya
-      if (hasilWinner.id) {
-        await spinnerApi.setNextHost(hasilWinner.id, {
-          is_next_host: true,
-          tanggal_host: hasilForm.jadwal_tanggal
-        })
-      }
+      await spinnerApi.setNextHost(hostId, {
+        is_next_host: true,
+        tanggal_host: hasilForm.jadwal_tanggal
+      })
 
       // Langkah 3: Buat jadwal pertemuan otomatis menggunakan data form yang sudah diedit
       const jadwalRes = await jadwalApi.create({
+        judul: "Pertemuan Majelis Ta'lim",
         tanggal: hasilForm.jadwal_tanggal,
-        waktu: hasilForm.jadwal_waktu,
+        waktu_mulai: hasilForm.jadwal_waktu,
         lokasi: hasilForm.jadwal_lokasi,
-        keterangan: hasilForm.jadwal_keterangan,
-        host_id: hasilWinner.id
+        deskripsi: hasilForm.jadwal_keterangan,
+        host_id: hostId
       })
       jadwalId = jadwalRes?.data?.id || jadwalRes?.id || null
       setSavedJadwal({ ...hasilForm, id: jadwalId })
@@ -473,7 +492,7 @@ export default function AdminSpinner() {
       await qc.invalidateQueries({ queryKey: ['spinner-riwayat'] })
 
     } catch (err) {
-      const errMsg = err?.response?.data?.message || err?.message || 'Terjadi kesalahan'
+      const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Terjadi kesalahan'
       setSaveError(`Gagal menyimpan: ${errMsg}. Silakan coba lagi.`)
 
       // Rollback jadwal jika terlanjur dibuat
@@ -487,10 +506,11 @@ export default function AdminSpinner() {
 
   function handleTutupHasil() {
     setHasilModal(false)
+    setShowWinnerPopup(false)
     setHasilWinner(null)
     setSaveError(null)
     setSavedJadwal(null)
-    setHasilForm({ nama_terpilih: '', jadwal_tanggal: '', jadwal_waktu: '19:30', jadwal_lokasi: '', jadwal_keterangan: '' })
+    setHasilForm({ nama_terpilih: '', host_jamaah_id: '', jadwal_tanggal: '', jadwal_waktu: '19:30', jadwal_lokasi: '', jadwal_keterangan: '' })
     setHasPendingWinner(false)
   }
 
@@ -633,6 +653,22 @@ export default function AdminSpinner() {
         </Card>
       )}
 
+      {/* ── Popup Pengumuman Pemenang ────────────────────────────────────────────── */}
+      {/* Tampil dulu sebelum form edit, supaya admin sempat melihat dengan jelas
+          siapa yang terpilih sebelum lanjut mengedit detail jadwal. */}
+      <Modal isOpen={showWinnerPopup} onClose={() => {}} title="">
+        <div className="flex flex-col items-center text-center gap-3 py-2">
+          <div className="text-5xl">🎉</div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Tuan rumah terpilih:</p>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+            {hasilWinner?.nama || hasilWinner?.name}
+          </p>
+          <Button className="w-full mt-3" onClick={handleLanjutKeForm}>
+            Lanjutkan
+          </Button>
+        </div>
+      </Modal>
+
       {/* ── Modal Hasil Spinner ──────────────────────────────────────────────────── */}
       {/* Tidak bisa ditutup paksa sebelum tersimpan */}
       <Modal isOpen={hasilModal} onClose={handleCloseModal} title="Hasil Spinner — Edit & Simpan">
@@ -687,12 +723,30 @@ export default function AdminSpinner() {
 
               {/* Form — semua field bisa diedit */}
               <div className="space-y-3">
-                <Input
-                  label="Nama Tuan Rumah Terpilih*"
-                  placeholder="Nama tuan rumah"
-                  value={hasilForm.nama_terpilih}
-                  onChange={e => setHasilForm(f => ({ ...f, nama_terpilih: e.target.value }))}
-                />
+                <Select
+                  label="Tuan Rumah Terpilih*"
+                  value={hasilForm.host_jamaah_id}
+                  onChange={e => {
+                    const id = e.target.value
+                    const jamaahTerpilih = jamaahList.find(j => String(j.id) === String(id))
+                    setHasilForm(f => ({
+                      ...f,
+                      host_jamaah_id: id,
+                      nama_terpilih: jamaahTerpilih?.nama || '',
+                      // Lokasi ikut update ke nama jamaah yang baru, kecuali admin
+                      // sudah mengubahnya secara manual sebelumnya.
+                      jadwal_lokasi: f.jadwal_lokasi === f.nama_terpilih ? (jamaahTerpilih?.nama || '') : f.jadwal_lokasi
+                    }))
+                  }}
+                >
+                  <option value="">— Pilih jamaah —</option>
+                  {jamaahList.map(j => (
+                    <option key={j.id} value={j.id}>{j.nama}</option>
+                  ))}
+                </Select>
+                <p className="text-xs text-gray-400 -mt-2">
+                  Default terisi hasil putaran. Admin dapat memilih jamaah lain dari daftar bila perlu.
+                </p>
                 <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 pt-1">
                   <Calendar className="w-4 h-4 shrink-0" />
                   <p className="text-xs">Jadwal pertemuan berikutnya (default +14 hari, dapat diubah)</p>
