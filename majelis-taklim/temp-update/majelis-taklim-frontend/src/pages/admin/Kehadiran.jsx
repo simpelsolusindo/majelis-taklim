@@ -195,7 +195,9 @@ function TabKehadiran({ jadwalList, jamaahList, jenisIuranList, qc }) {
   }
 
   const isJadwalSelesai = jadwalTerpilih?.status === 'selesai'
-  const isIuranDicatat = jadwalTerpilih?.iuran_sudah_dicatat === true
+  // Catatan: D1/SQLite menyimpan INTEGER (0/1), bukan boolean asli —
+  // pakai truthy check, bukan `=== true` (sama seperti bug di Spinner.jsx).
+  const isIuranDicatat = !!jadwalTerpilih?.iuran_sudah_dicatat
 
   return (
     <div className="space-y-5">
