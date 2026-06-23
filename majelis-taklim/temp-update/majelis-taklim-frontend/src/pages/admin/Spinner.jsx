@@ -46,7 +46,7 @@ function getDefaultNextDate(tanggalRef) {
 }
 
 // ── WorkflowGate: banner validasi status pertemuan ────────────────────────────
-function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
+function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorTeknis, jadwalBelumAda }) {
   if (loadingJadwal) {
     return (
       <Card className="p-4 flex items-center gap-3 border border-gray-200 dark:border-gray-700">
@@ -58,7 +58,25 @@ function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
     )
   }
 
-  if (errorJadwal) {
+  // Database belum punya jadwal sama sekali — kondisi NORMAL (misalnya baru
+  // di-reset atau memang belum pernah ada pertemuan), bukan kegagalan teknis.
+  if (jadwalBelumAda || !jadwalTerakhir) {
+    return (
+      <Card className="p-4 flex items-center gap-3 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+        <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+            Belum ada jadwal pertemuan
+          </p>
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+            Buat jadwal pertemuan terlebih dahulu di menu Jadwal, lalu catat kehadirannya, agar Spinner dapat digunakan.
+          </p>
+        </div>
+      </Card>
+    )
+  }
+
+  if (errorTeknis) {
     return (
       <Card className="p-4 flex items-center gap-3 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
         <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
@@ -67,20 +85,9 @@ function WorkflowGate({ jadwalTerakhir, loadingJadwal, errorJadwal }) {
             Gagal memuat status pertemuan
           </p>
           <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
-            Pastikan backend endpoint <code className="bg-red-100 dark:bg-red-900 px-1 rounded">GET /jadwal/terakhir</code> sudah tersedia.
+            Terjadi gangguan koneksi ke server. Coba muat ulang halaman.
           </p>
         </div>
-      </Card>
-    )
-  }
-
-  if (!jadwalTerakhir) {
-    return (
-      <Card className="p-4 flex items-center gap-3 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
-        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-        <p className="text-sm text-amber-700 dark:text-amber-300">
-          Belum ada data jadwal pertemuan. Buat jadwal pertemuan pertama terlebih dahulu.
-        </p>
       </Card>
     )
   }
@@ -358,13 +365,22 @@ export default function AdminSpinner() {
   const {
     data: jadwalTerakhirData,
     isLoading: loadingJadwal,
-    isError: errorJadwal
+    isError: errorJadwal,
+    error: jadwalErrorObj
   } = useQuery({
     queryKey: ['jadwal-terakhir'],
     queryFn: () => jadwalApi.getLast().then(r => r.data),
     refetchOnWindowFocus: true,
-    staleTime: 0
+    staleTime: 0,
+    // 404 di sini artinya "belum ada jadwal sama sekali" — itu kondisi NORMAL
+    // (misalnya database baru di-reset), bukan kegagalan yang perlu di-retry.
+    retry: (failureCount, err) => err?.response?.status !== 404 && failureCount < 2
   })
+
+  // Bedakan 404 (belum ada jadwal — kondisi normal) dari error teknis sungguhan
+  // (network gagal, server error, dll). 404 TIDAK dianggap error oleh UI.
+  const jadwalBelumAda = jadwalErrorObj?.response?.status === 404
+  const errorTeknis = errorJadwal && !jadwalBelumAda
 
   const { data: riwayatData } = useQuery({
     queryKey: ['spinner-riwayat'],
@@ -397,7 +413,7 @@ export default function AdminSpinner() {
   // Catatan: iuran_sudah_dicatat dari D1/SQLite berupa INTEGER 0/1, bukan
   // boolean asli — pakai truthy check (!!), bukan `=== true`.
   const workflowSiap = !loadingJadwal
-    && !errorJadwal
+    && !errorTeknis
     && jadwalTerakhir !== null
     && jadwalTerakhir.status === 'selesai'
     && !!jadwalTerakhir.iuran_sudah_dicatat
@@ -531,7 +547,8 @@ export default function AdminSpinner() {
       <WorkflowGate
         jadwalTerakhir={jadwalTerakhir}
         loadingJadwal={loadingJadwal}
-        errorJadwal={errorJadwal}
+        errorTeknis={errorTeknis}
+        jadwalBelumAda={jadwalBelumAda}
       />
 
       {/* Fase Selector — hanya tampil jika workflow siap */}
