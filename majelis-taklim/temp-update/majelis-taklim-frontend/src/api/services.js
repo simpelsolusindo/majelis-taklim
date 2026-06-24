@@ -71,28 +71,22 @@ export const bacaanApi = {
 }
 
 // Spinner
-// CHECKLIST ENDPOINT BACKEND (semua wajib tersedia sebelum fitur ini final):
-//   ✓ GET  /spinner/fase           — daftar fase
-//   ✓ GET  /spinner/fase/:id       — detail fase + peserta
-//   ✓ POST /spinner/fase           — buat fase baru
-//   ✓ POST /spinner/putar          — catat putaran (opsional, bisa digabung ke /spinner/hasil)
-//   ✗ POST /spinner/hasil          — simpan hasil pemenang (WAJIB ada)
-//   ✗ PUT  /jamaah/:id/next-host   — tandai jamaah sebagai host berikutnya (WAJIB ada)
-//   ✗ GET  /spinner/riwayat        — riwayat putaran (aktifkan enabled:true setelah tersedia)
-//
-// ROLLBACK: Selama backend belum menyediakan transaksi atomik, frontend
-// hanya bisa rollback jadwal (DELETE /jadwal/:id). Untuk rollback penuh,
-// backend perlu: DELETE /spinner/hasil/:id dan reset PUT /jamaah/:id/next-host.
 export const spinnerApi = {
+  // GET /spinner/aktif — fase aktif saat ini + peserta (auto-create jika belum ada)
+  getFaseAktif: () => client.get('/spinner/aktif'),
+  // GET /spinner/fase — daftar semua fase (untuk info admin)
   getFases: () => client.get('/spinner/fase'),
   getFaseById: (id) => client.get(`/spinner/fase/${id}`),
+  // POST /spinner/fase — buat fase baru manual (jarang dipakai, biasanya auto)
   createFase: (data) => client.post('/spinner/fase', data),
+  // POST /spinner/putar — backend pilih acak dari fase aktif
   putar: (data) => client.post('/spinner/putar', data),
-  // Simpan hasil putaran ke backend — endpoint wajib tersedia
+  // POST /spinner/hasil — simpan hasil pemenang
   saveHasil: (data) => client.post('/spinner/hasil', data),
-  konfirmasi: (data) => client.post('/spinner/konfirmasi', data),
-  // Tandai jamaah sebagai host berikutnya — endpoint wajib tersedia
+  // PUT /jamaah/:id/next-host — tandai jamaah sebagai host berikutnya
   setNextHost: (jamaahId, data) => client.put(`/jamaah/${jamaahId}/next-host`, data),
-  // Riwayat putaran — aktifkan query enabled:true setelah endpoint ini tersedia
+  // GET /spinner/riwayat — riwayat hasil spinner
   getRiwayat: (params) => client.get('/spinner/riwayat', { params }),
+  // POST /spinner/reset — reset fase aktif
+  reset: () => client.post('/spinner/reset', {}),
 }
