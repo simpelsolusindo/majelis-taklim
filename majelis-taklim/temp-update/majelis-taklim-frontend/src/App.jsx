@@ -19,7 +19,6 @@ import AdminLogin      from './pages/admin/Login'
 import AdminDashboard  from './pages/admin/Dashboard'
 import AdminJamaah     from './pages/admin/Jamaah'
 import AdminIuran      from './pages/admin/Iuran'
-import AdminKehadiran  from './pages/admin/Kehadiran'
 import AdminPengumuman from './pages/admin/Pengumuman'
 import AdminJadwal     from './pages/admin/Jadwal'
 import AdminSpinner    from './pages/admin/Spinner'
@@ -46,7 +45,6 @@ function AdminApp() {
           <Route index                element={<AdminDashboard  />} />
           <Route path="jamaah"        element={<AdminJamaah     />} />
           <Route path="iuran"         element={<AdminIuran      />} />
-          <Route path="kehadiran"     element={<AdminKehadiran  />} />
           <Route path="pengumuman"    element={<AdminPengumuman />} />
           <Route path="jadwal"        element={<AdminJadwal     />} />
           <Route path="spinner"       element={<AdminSpinner    />} />
