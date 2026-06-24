@@ -34,4 +34,3 @@ database_id   = "ISI_DATABASE_ID_DEV"
 
 [env.dev.vars]
 ENVIRONMENT = "development"
-EOF_WRANGLERTOML
