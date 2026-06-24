@@ -85,5 +85,28 @@ export async function handleJamaah(request, env, path) {
     return createResponse({ success: true });
   }
 
+  // PUT /api/jamaah/:id/next-host — tandai jamaah sebagai host berikutnya
+  if (request.method === 'PUT' && segments[2] && segments[3] === 'next-host') {
+    requireAdmin(request);
+    const hostId = parseInt(segments[2]);
+    const { is_next_host, tanggal_host } = await request.json();
+
+    // Reset is_next_host untuk semua jamaah dulu (hanya 1 next host)
+    if (is_next_host) {
+      await env.DB.prepare(
+        `UPDATE jamaah SET is_next_host = 0, tanggal_host = NULL, updated_at = datetime('now')
+         WHERE is_next_host = 1`
+      ).run();
+    }
+
+    await env.DB.prepare(
+      `UPDATE jamaah SET is_next_host = ?, tanggal_host = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    ).bind(is_next_host ? 1 : 0, tanggal_host || null, hostId).run();
+
+    await auditLog(env, request.user.id, 'SET_NEXT_HOST', 'jamaah', hostId, { is_next_host, tanggal_host });
+    return createResponse({ success: true });
+  }
+
   return createResponse({ error: 'Method not allowed' }, 405);
 }
