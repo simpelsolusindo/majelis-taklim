@@ -247,9 +247,18 @@ function SpinWheel({ participants, onResult, locked, disabled }) {
       if (progress < 1) {
         animRef.current = requestAnimationFrame(step)
       } else {
-        const finalAngle = current % (2 * Math.PI)
         const arc = (2 * Math.PI) / count
-        const normalized = ((-finalAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI)
+
+        // Penanda (pointer) digambar di ATAS roda (jam 12 = -90° / -π/2 dalam
+        // konvensi ctx.arc(), yang mulai dari kanan/jam-3 dan searah jarum jam).
+        // Sektor ke-i digambar pada sudut [currentAngle + i*arc, ...+arc).
+        // Supaya pas dengan posisi penanda di atas, sudut itu harus dikurangi
+        // offset -π/2 sebelum dicocokkan ke index sektor — sebelumnya offset
+        // ini tidak diperhitungkan, sehingga sektor yang terdeteksi "menang"
+        // selalu meleset dari sektor yang benar-benar berhenti di bawah penanda.
+        const pointerOffset = -Math.PI / 2
+        const finalAngle = current % (2 * Math.PI)
+        const normalized = (((pointerOffset - finalAngle) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
         const idx = Math.floor(normalized / arc) % count
         const w = participants[idx]
         setWinner(w)

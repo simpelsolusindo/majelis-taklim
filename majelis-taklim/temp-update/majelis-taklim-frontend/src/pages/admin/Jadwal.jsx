@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { jadwalApi } from '../../api/services'
+import { jadwalApi, jamaahApi, kehadiranApi, iuranApi, jenisIuranApi } from '../../api/services'
 import { Button, Input, Textarea, Modal, Table, Pagination, ConfirmDialog, Badge } from '../../components/ui'
-import { Plus, Edit, Trash2, Lightbulb, CheckCircle } from 'lucide-react'
-import { formatDate, formatTime } from '../../utils/helpers'
+import { Plus, Edit, Trash2, Lightbulb, CheckCircle, AlertCircle, ClipboardCheck } from 'lucide-react'
+import { formatDate, formatTime, formatCurrency, currentMonth } from '../../utils/helpers'
 
 const EMPTY_FORM = { judul: '', tanggal: '', waktu_mulai: '19:30', lokasi: '', deskripsi: '' }
+
+const STATUS_KEHADIRAN = [
+  { value: 'hadir', label: 'Hadir', color: 'emerald' },
+  { value: 'izin', label: 'Izin', color: 'amber' },
+  { value: 'tidak_hadir', label: 'Tidak', color: 'red' }
+]
 
 // Hitung usulan +14 hari dari jadwal terakhir
 function getUsulTanggal(jadwals) {
@@ -31,7 +37,9 @@ export default function AdminJadwal() {
   const [deleteId, setDeleteId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [showTip, setShowTip] = useState(false)
-  const [selesaiId, setSelesaiId] = useState(null)  // konfirmasi tandai selesai
+
+  // Modal checklist kehadiran + iuran (menggantikan menu Kehadiran terpisah)
+  const [kehadiranModalJadwal, setKehadiranModalJadwal] = useState(null) // simpan row jadwal yang dibuka
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-jadwal', page],
@@ -44,16 +52,6 @@ export default function AdminJadwal() {
   const deleteMut = useMutation({
     mutationFn: id => jadwalApi.delete(id),
     onSuccess: () => { qc.invalidateQueries(['admin-jadwal']); setDeleteId(null) }
-  })
-
-  // Tandai jadwal sebagai selesai — update status di backend
-  const selesaiMut = useMutation({
-    mutationFn: id => jadwalApi.update(id, { status: 'selesai' }),
-    onSuccess: () => {
-      qc.invalidateQueries(['admin-jadwal'])
-      qc.invalidateQueries(['jadwal-terakhir'])
-      setSelesaiId(null)
-    }
   })
 
   function openAdd() {
@@ -110,7 +108,9 @@ export default function AdminJadwal() {
     },
     {
       key: 'status', title: 'Status',
-      render: (v) => {
+      render: (v, row) => {
+        // 'selesai' HANYA terjadi otomatis setelah kehadiran+iuran disimpan —
+        // tidak ada lagi tombol manual untuk menandai selesai tanpa checklist.
         if (v === 'selesai') return <Badge color="emerald">Selesai</Badge>
         return <Badge color="amber">Akan Datang</Badge>
       }
@@ -119,16 +119,16 @@ export default function AdminJadwal() {
       key: 'id', title: 'Aksi',
       render: (_, row) => (
         <div className="flex gap-1 items-center">
-          {/* Tombol tandai selesai — hanya muncul jika belum selesai */}
-          {row.status !== 'selesai' && (
-            <button
-              onClick={() => setSelesaiId(row.id)}
-              title="Tandai Selesai"
-              className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all"
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-            </button>
-          )}
+          {/* Tombol Catat Kehadiran — membuka modal checklist+iuran.
+              Tetap bisa dibuka walau sudah selesai, untuk melihat/cek data
+              (modal akan menampilkan dalam mode terkunci jika sudah tercatat). */}
+          <button
+            onClick={() => setKehadiranModalJadwal(row)}
+            title="Catat Kehadiran & Iuran"
+            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all"
+          >
+            <ClipboardCheck className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => openEdit(row)}
             className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
@@ -159,7 +159,7 @@ export default function AdminJadwal() {
       {/* Petunjuk workflow */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3">
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          <strong>Workflow Spinner:</strong> Tandai jadwal sebagai <strong>Selesai</strong> (ikon ✓) setelah pertemuan selesai, lalu catat iuran dari kehadiran di menu Iuran. Setelah itu Spinner dapat digunakan.
+          <strong>Workflow Spinner:</strong> Klik ikon <ClipboardCheck className="inline w-3.5 h-3.5 -mt-0.5" /> untuk catat kehadiran & iuran. Status pertemuan otomatis menjadi <strong>Selesai</strong> setelah checklist disimpan. Setelah itu Spinner dapat digunakan.
         </p>
       </div>
 
@@ -219,15 +219,14 @@ export default function AdminJadwal() {
         </div>
       </Modal>
 
-      {/* Konfirmasi Tandai Selesai */}
-      <ConfirmDialog
-        isOpen={!!selesaiId}
-        onClose={() => setSelesaiId(null)}
-        onConfirm={() => selesaiMut.mutate(selesaiId)}
-        loading={selesaiMut.isPending}
-        title="Tandai Pertemuan Selesai"
-        message="Pertemuan ini akan ditandai sebagai selesai. Setelah itu, catat iuran dari kehadiran untuk mengaktifkan Spinner. Lanjutkan?"
-      />
+      {/* Modal Checklist Kehadiran & Iuran — menggantikan menu Kehadiran terpisah */}
+      {kehadiranModalJadwal && (
+        <KehadiranModal
+          jadwal={kehadiranModalJadwal}
+          onClose={() => setKehadiranModalJadwal(null)}
+          qc={qc}
+        />
+      )}
 
       {/* Konfirmasi Hapus */}
       <ConfirmDialog
@@ -239,5 +238,215 @@ export default function AdminJadwal() {
         message="Hapus jadwal pertemuan ini?"
       />
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KehadiranModal — checklist kehadiran + iuran otomatis, dalam SATU langkah.
+//
+// Menggantikan halaman /admin/kehadiran yang lama. Dipanggil sebagai modal
+// dari baris jadwal manapun di tabel.
+//
+// Aturan iuran otomatis (nominal dari jenis_iuran "Iuran Rutinan".nominal_default):
+//   - Hadir       → iuran tercatat sebesar nominal_default
+//   - Izin        → iuran TETAP tercatat sebesar nominal_default (tetap kena iuran)
+//                   tapi status yang DISIMPAN ke tabel kehadiran adalah 'tidak_hadir'
+//   - Tidak Hadir → iuran tidak dicatat sama sekali (Rp0)
+// ─────────────────────────────────────────────────────────────────────────────
+function KehadiranModal({ jadwal, onClose, qc }) {
+  const [checklistStatus, setChecklistStatus] = useState({}) // { jamaah_id: 'hadir'|'izin'|'tidak_hadir' }
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [initialized, setInitialized] = useState(false)
+
+  const { data: jamaahData, isLoading: loadingJamaah } = useQuery({
+    queryKey: ['jamaah-all'],
+    queryFn: () => jamaahApi.getAll({ limit: 200 }).then(r => r.data)
+  })
+  const jamaahList = (jamaahData?.data || jamaahData || []).filter(j => j.status === 'aktif')
+
+  const { data: jenisData } = useQuery({
+    queryKey: ['jenis-iuran'],
+    queryFn: () => jenisIuranApi.getAll().then(r => r.data)
+  })
+  const jenisIuranList = jenisData?.data || jenisData || []
+  const jenisRutinan = jenisIuranList.find(j => j.id === 1)
+  const nominalRutinan = Number(jenisRutinan?.nominal_default || 0)
+
+  const { isLoading: loadingExisting } = useQuery({
+    queryKey: ['kehadiran-by-jadwal', jadwal.id],
+    queryFn: () => kehadiranApi.getAll({ jadwal_id: jadwal.id, limit: 200 }).then(r => r.data),
+    onSuccess: (data) => {
+      const list = data?.data || data || []
+      if (list.length > 0) {
+        const existing = {}
+        list.forEach(k => { existing[k.jamaah_id] = k.status })
+        setChecklistStatus(existing)
+      } else if (!initialized) {
+        // Belum ada data — default semua jamaah aktif jadi 'hadir'
+        const init = {}
+        jamaahList.forEach(j => { init[j.id] = 'hadir' })
+        setChecklistStatus(init)
+      }
+      setInitialized(true)
+    }
+  })
+
+  const isTercatatLengkap = jadwal.status === 'selesai' && !!jadwal.iuran_sudah_dicatat
+
+  const estimasiIuran = jamaahList.reduce((total, j) => {
+    const status = checklistStatus[j.id]
+    return (status === 'hadir' || status === 'izin') ? total + nominalRutinan : total
+  }, 0)
+
+  async function handleSimpanSemua() {
+    if (Object.keys(checklistStatus).length === 0) {
+      setError('Belum ada status kehadiran yang diisi.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const periode = jadwal.tanggal ? jadwal.tanggal.slice(0, 7) : currentMonth()
+      const tanggalBayar = jadwal.tanggal || new Date().toISOString().slice(0, 10)
+
+      // 1) Simpan kehadiran — status 'izin' dikonversi jadi 'tidak_hadir' di DB
+      const absensi = jamaahList.map(j => {
+        const statusAsli = checklistStatus[j.id] || 'tidak_hadir'
+        const statusDb = statusAsli === 'izin' ? 'tidak_hadir' : statusAsli
+        return { jamaah_id: j.id, status: statusDb, catatan: statusAsli === 'izin' ? 'izin' : '' }
+      })
+      await kehadiranApi.create({ jadwal_id: jadwal.id, absensi })
+      await jadwalApi.update(jadwal.id, { status: 'selesai' })
+
+      // 2) Simpan iuran otomatis untuk yang Hadir atau Izin (status asli)
+      const jamaahKenaIuran = jamaahList.filter(j => {
+        const statusAsli = checklistStatus[j.id]
+        return statusAsli === 'hadir' || statusAsli === 'izin'
+      })
+
+      if (jamaahKenaIuran.length > 0 && nominalRutinan > 0) {
+        const iuranPromises = jamaahKenaIuran.map(j => iuranApi.create({
+          jamaah_id: j.id,
+          jadwal_id: jadwal.id,
+          nominal: nominalRutinan,
+          tanggal_bayar: tanggalBayar,
+          periode,
+          keterangan: checklistStatus[j.id] === 'izin'
+            ? 'Iuran otomatis — izin tidak hadir'
+            : 'Iuran otomatis dari kehadiran pertemuan'
+        }))
+        await Promise.all(iuranPromises)
+      }
+
+      // 3) Tandai iuran sudah dicatat — kehadiran+iuran selalu satu langkah
+      await jadwalApi.update(jadwal.id, { iuran_sudah_dicatat: true })
+
+      qc.invalidateQueries(['admin-jadwal'])
+      qc.invalidateQueries(['jadwal-terakhir'])
+      qc.invalidateQueries(['kehadiran-by-jadwal', jadwal.id])
+      qc.invalidateQueries(['admin-iuran'])
+      qc.invalidateQueries(['iuran-by-jadwal', jadwal.id])
+
+      onClose()
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Gagal menyimpan kehadiran & iuran.'
+      setError(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title={`Kehadiran & Iuran — ${jadwal.judul || ''}`} size="lg">
+      <div className="space-y-4">
+        <p className="text-xs text-gray-400">
+          {formatDate(jadwal.tanggal)} · {jamaahList.length} jamaah aktif
+        </p>
+
+        {isTercatatLengkap && (
+          <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3">
+            <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+            <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
+              Kehadiran & iuran sudah tercatat. Spinner kini dapat digunakan.
+            </p>
+          </div>
+        )}
+
+        {!isTercatatLengkap && (
+          <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl px-3 py-2.5 space-y-1">
+            <div className="flex items-center gap-1.5">
+              <Badge color="emerald">Iuran Rutinan</Badge>
+              <p className="text-xs text-gray-400">otomatis {formatCurrency(nominalRutinan)} — tidak perlu diisi manual</p>
+            </div>
+            <p className="text-xs text-gray-400">
+              <strong className="text-emerald-600 dark:text-emerald-400">Hadir</strong> & <strong className="text-amber-600 dark:text-amber-400">Izin</strong> tetap kena iuran ·
+              {' '}<strong className="text-red-500">Tidak Hadir</strong> tidak kena iuran
+            </p>
+          </div>
+        )}
+
+        {(loadingJamaah || loadingExisting) ? (
+          <p className="text-sm text-gray-400 text-center py-4">Memuat data...</p>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {jamaahList.map(j => (
+              <div key={j.id} className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-gray-800 last:border-0">
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{j.nama}</span>
+                <div className="flex gap-1">
+                  {STATUS_KEHADIRAN.map(s => (
+                    <button
+                      key={s.value}
+                      disabled={isTercatatLengkap}
+                      onClick={() => setChecklistStatus(prev => ({ ...prev, [j.id]: s.value }))}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all
+                        ${checklistStatus[j.id] === s.value
+                          ? `bg-${s.color}-100 text-${s.color}-700 dark:bg-${s.color}-900/40 dark:text-${s.color}-300 ring-2 ring-${s.color}-400`
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        }
+                        ${isTercatatLengkap ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}
+                      `}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!isTercatatLengkap && (
+          <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Estimasi total iuran tercatat</span>
+            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(estimasiIuran)}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>
+            {isTercatatLengkap ? 'Tutup' : 'Batal'}
+          </Button>
+          {!isTercatatLengkap && (
+            <Button
+              className="flex-1"
+              loading={saving}
+              disabled={Object.keys(checklistStatus).length === 0 || saving}
+              onClick={handleSimpanSemua}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Simpan
+            </Button>
+          )}
+        </div>
+      </div>
+    </Modal>
   )
 }
