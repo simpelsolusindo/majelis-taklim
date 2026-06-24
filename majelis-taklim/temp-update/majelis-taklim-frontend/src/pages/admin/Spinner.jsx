@@ -293,6 +293,8 @@ export default function AdminSpinner() {
   const [saveError, setSaveError] = useState(null)
   const [savedJadwal, setSavedJadwal] = useState(null)
   const [faseBaru, setFaseBaru] = useState(null) // notifikasi fase baru dibuat
+  // Setelah jadwal berhasil dibuat, spinner dikunci permanen sampai halaman di-refresh
+  const [jadwalSudahDibuat, setJadwalSudahDibuat] = useState(false)
 
   const [hasilForm, setHasilForm] = useState({
     nama_terpilih: '',
@@ -428,6 +430,7 @@ export default function AdminSpinner() {
       })
       jadwalId = jadwalRes?.data?.id || jadwalRes?.id || null
       setSavedJadwal({ ...hasilForm, id: jadwalId })
+      setJadwalSudahDibuat(true) // kunci spinner permanen sampai halaman di-refresh
 
       // Refresh semua query terkait
       // exact: false memastikan semua halaman ['admin-jadwal', page] ikut di-invalidate
@@ -541,13 +544,28 @@ export default function AdminSpinner() {
         </>
       )}
 
+      {/* Banner: jadwal sudah dibuat, spinner terkunci */}
+      {jadwalSudahDibuat && (
+        <Card className="p-4 flex items-center gap-3 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+          <CheckCircle className="w-4 h-4 text-blue-500 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Jadwal pertemuan berikutnya sudah dibuat
+            </p>
+            <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5">
+              Spinner dikunci. Catat kehadiran & iuran pertemuan berikutnya terlebih dahulu sebelum memutar ulang.
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Spinner Wheel */}
       {workflowSiap && !loadingFase && participants.length > 0 && (
         <Card className="p-6">
           <SpinWheel
             participants={participants}
             onResult={handleResult}
-            locked={hasPendingWinner}
+            locked={hasPendingWinner || jadwalSudahDibuat}
             disabled={!workflowSiap}
           />
         </Card>
