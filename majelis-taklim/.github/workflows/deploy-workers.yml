@@ -1,1 +1,33 @@
+name: Deploy Workers (Backend)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'majelis-taklim/workers/**'   # hanya jalan kalau ada perubahan di folder workers
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy ke Cloudflare Workers
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies Workers
+        working-directory: majelis-taklim/workers
+        run: npm install
+
+      - name: Deploy ke Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: majelis-taklim/workers
+          command: deploy
 
