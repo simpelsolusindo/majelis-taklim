@@ -29,6 +29,9 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       retry: 1,
       refetchOnWindowFocus: false,
+      // Pastikan query yang sudah di-invalidate (misal oleh Spinner setelah save)
+      // selalu refetch ulang saat komponen di-mount (misal pindah ke halaman Jadwal)
+      refetchOnMount: true,
     }
   }
 })
