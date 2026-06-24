@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { jadwalApi, jamaahApi, kehadiranApi, iuranApi, jenisIuranApi } from '../../api/services'
-import { Button, Input, Textarea, Modal, Table, Pagination, ConfirmDialog, Badge } from '../../components/ui'
-import { Plus, Edit, Trash2, Lightbulb, CheckCircle, AlertCircle, ClipboardCheck } from 'lucide-react'
+import { Button, Input, Textarea, Modal, Table, Pagination, Badge } from '../../components/ui'
+import { Plus, Lightbulb, CheckCircle, AlertCircle, ClipboardCheck } from 'lucide-react'
 import { formatDate, formatTime, formatCurrency, currentMonth } from '../../utils/helpers'
 
 const EMPTY_FORM = { judul: '', tanggal: '', waktu_mulai: '19:30', lokasi: '', deskripsi: '' }
@@ -34,7 +34,6 @@ export default function AdminJadwal() {
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [editId, setEditId] = useState(null)
-  const [deleteId, setDeleteId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [showTip, setShowTip] = useState(false)
 
@@ -49,29 +48,11 @@ export default function AdminJadwal() {
   const jadwals = data?.data || data || []
   const totalPages = data?.totalPages || 1
 
-  const deleteMut = useMutation({
-    mutationFn: id => jadwalApi.delete(id),
-    onSuccess: () => { qc.invalidateQueries(['admin-jadwal']); setDeleteId(null) }
-  })
-
   function openAdd() {
     const usul = getUsulTanggal(jadwals)
     setForm({ ...EMPTY_FORM, tanggal: usul, judul: "Pertemuan Majelis Ta'lim" })
     setEditId(null)
     setShowTip(true)
-    setModal(true)
-  }
-
-  function openEdit(j) {
-    setForm({
-      judul: j.judul || '',
-      tanggal: j.tanggal || '',
-      waktu_mulai: j.waktu_mulai || '19:30',
-      lokasi: j.lokasi || '',
-      deskripsi: j.deskripsi || ''
-    })
-    setEditId(j.id)
-    setShowTip(false)
     setModal(true)
   }
 
@@ -117,32 +98,28 @@ export default function AdminJadwal() {
     },
     {
       key: 'id', title: 'Aksi',
-      render: (_, row) => (
-        <div className="flex gap-1 items-center">
-          {/* Tombol Catat Kehadiran — membuka modal checklist+iuran.
-              Tetap bisa dibuka walau sudah selesai, untuk melihat/cek data
-              (modal akan menampilkan dalam mode terkunci jika sudah tercatat). */}
-          <button
-            onClick={() => setKehadiranModalJadwal(row)}
-            title="Catat Kehadiran & Iuran"
-            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all"
-          >
-            <ClipboardCheck className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => openEdit(row)}
-            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg"
-          >
-            <Edit className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => setDeleteId(row.id)}
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )
+      render: (_, row) => {
+        const sudahSelesai = row.status === 'selesai'
+        return (
+          <div className="flex gap-1 items-center">
+            {/* Tombol Catat Kehadiran — hilang total setelah status 'selesai',
+                supaya tidak terjadi dobel input kehadiran/iuran untuk jadwal
+                yang sama. */}
+            {!sudahSelesai && (
+              <button
+                onClick={() => setKehadiranModalJadwal(row)}
+                title="Catat Kehadiran & Iuran"
+                className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all"
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {sudahSelesai && (
+              <span className="text-xs text-gray-400 px-1.5">—</span>
+            )}
+          </div>
+        )
+      }
     }
   ]
 
@@ -227,16 +204,6 @@ export default function AdminJadwal() {
           qc={qc}
         />
       )}
-
-      {/* Konfirmasi Hapus */}
-      <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        onConfirm={() => deleteMut.mutate(deleteId)}
-        loading={deleteMut.isPending}
-        title="Hapus Jadwal"
-        message="Hapus jadwal pertemuan ini?"
-      />
     </div>
   )
 }
