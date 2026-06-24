@@ -98,11 +98,18 @@ export async function handleJadwal(request, env, path) {
   const segments = path.split('/').filter(Boolean);
   const rawId    = segments[2];
 
-  // GET /api/jadwal/terakhir — jadwal paling baru (berdasarkan tanggal)
+  // GET /api/jadwal/terakhir — jadwal pertemuan terakhir yang sudah berlangsung
+  // (tanggal <= hari ini atau sudah berstatus 'selesai')
   // Dipakai frontend untuk cek status langkah kehadiran/iuran terakhir.
+  // Sengaja TIDAK mengambil jadwal masa depan yang baru dibuat via Spinner,
+  // supaya WorkflowGate tidak langsung ter-lock setelah spinner save.
   if (request.method === 'GET' && rawId === 'terakhir') {
     const row = await env.DB.prepare(
-      `SELECT * FROM jadwal WHERE status != 'batal' ORDER BY tanggal DESC LIMIT 1`
+      `SELECT * FROM jadwal
+       WHERE status != 'batal'
+         AND (status = 'selesai' OR tanggal <= date('now'))
+       ORDER BY tanggal DESC
+       LIMIT 1`
     ).first();
     if (!row) return createResponse({ error: 'Belum ada jadwal' }, 404);
     return createResponse(row);
