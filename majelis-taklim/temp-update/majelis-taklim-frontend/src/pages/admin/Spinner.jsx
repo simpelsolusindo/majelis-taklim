@@ -715,7 +715,7 @@ export default function AdminSpinner() {
                 >
                   <option value="">— Pilih jamaah —</option>
                   {jamaahList.map(j => (
-                    <option key={j.id} value={j.id}>{j.nama}</option>
+                    <option key={j.id} value={j.id}>{j.nama}{j.alamat ? ` — ${j.alamat}` : ""}</option>
                   ))}
                 </Select>
                 <Input
