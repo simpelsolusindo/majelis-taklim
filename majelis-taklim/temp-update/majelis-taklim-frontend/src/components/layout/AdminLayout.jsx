@@ -12,7 +12,6 @@ const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { to: '/admin/jamaah', icon: Users, label: 'Jamaah' },
   { to: '/admin/iuran', icon: CreditCard, label: 'Iuran' },
-  { to: '/admin/kehadiran', icon: CheckSquare, label: 'Kehadiran' },
   { to: '/admin/pengumuman', icon: Megaphone, label: 'Pengumuman' },
   { to: '/admin/jadwal', icon: Calendar, label: 'Jadwal' },
   { to: '/admin/spinner', icon: Disc, label: 'Spinner Giliran' },
