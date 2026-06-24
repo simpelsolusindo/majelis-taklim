@@ -379,7 +379,8 @@ export default function AdminSpinner() {
       host_jamaah_id: winner.jamaah_id || winner.id || '',
       jadwal_tanggal: getDefaultNextDate(tanggalRef) || fallbackDate,
       jadwal_waktu: '19:30',
-      jadwal_lokasi: winner.nama || winner.name || '',
+      // Kosongkan lokasi — biarkan admin isi alamat rumah yang sebenarnya
+      jadwal_lokasi: '',
       jadwal_keterangan: `Tuan rumah terpilih via Spinner — ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`
     })
 
@@ -429,12 +430,13 @@ export default function AdminSpinner() {
       setSavedJadwal({ ...hasilForm, id: jadwalId })
 
       // Refresh semua query terkait
+      // exact: false memastikan semua halaman ['admin-jadwal', page] ikut di-invalidate
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ['jamaah-all'] }),
-        qc.invalidateQueries({ queryKey: ['jadwal-terakhir'] }),
-        qc.invalidateQueries({ queryKey: ['admin-jadwal'] }),
-        qc.invalidateQueries({ queryKey: ['spinner-riwayat'] }),
-        qc.invalidateQueries({ queryKey: ['spinner-aktif'] }),
+        qc.invalidateQueries({ queryKey: ['jamaah-all'], exact: false }),
+        qc.invalidateQueries({ queryKey: ['jadwal-terakhir'], exact: false }),
+        qc.invalidateQueries({ queryKey: ['admin-jadwal'], exact: false }),
+        qc.invalidateQueries({ queryKey: ['spinner-riwayat'], exact: false }),
+        qc.invalidateQueries({ queryKey: ['spinner-aktif'], exact: false }),
       ])
 
     } catch (err) {
@@ -677,9 +679,9 @@ export default function AdminSpinner() {
                   📅 {new Date(savedJadwal.jadwal_tanggal + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                   {' · '}{savedJadwal.jadwal_waktu} WIB
                 </p>
-                {savedJadwal.jadwal_lokasi && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400 pl-6">📍 {savedJadwal.jadwal_lokasi}</p>
-                )}
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 pl-6">
+                  📍 {savedJadwal.jadwal_lokasi || `Rumah ${savedJadwal.nama_terpilih}`}
+                </p>
               </div>
               <Button className="w-full" onClick={handleTutupHasil}>Tutup</Button>
             </>
@@ -709,7 +711,6 @@ export default function AdminSpinner() {
                       ...f,
                       host_jamaah_id: id,
                       nama_terpilih: j?.nama || '',
-                      jadwal_lokasi: f.jadwal_lokasi === f.nama_terpilih ? (j?.nama || '') : f.jadwal_lokasi
                     }))
                   }}
                 >
